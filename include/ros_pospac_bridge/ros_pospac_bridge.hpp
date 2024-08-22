@@ -28,6 +28,8 @@ private:
   } lidar_to_gnss_transform_, lidar_to_base_link_transform_;
 
   void publishGpsData();
+  sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
+                                               double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp);
   geometry_msgs::msg::PoseWithCovarianceStamped createPoseMessage(double easting, double northing, double altitude,
                                                                 double roll, double pitch, double yaw,
                                                                 double east_sd, double north_sd, double height_sd,

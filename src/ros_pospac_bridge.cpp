@@ -21,7 +21,7 @@
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
     // Initialize publishers
-    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("gps_fix", 10);
+    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("gps_fix", 10);  // Ensure correct topic name
     imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu_data", 10);
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_with_covariance", 10);
     pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("pose_array", 10);
@@ -93,6 +93,11 @@ void RosPospacBridge::publishGpsData()
             double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height - initial_altitude_;
 
+            // Create and publish GPS Fix message
+            auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
+                                            east_sd, north_sd, height_sd, sensor_time);
+            gps_pub_->publish(gps_msg);  // Publish GPS Fix message
+
             // Create PoseWithCovarianceStamped from GPS data
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
@@ -143,6 +148,28 @@ Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pit
     Eigen::Quaterniond q(orientation_enu);
 
     return q;
+}
+
+sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, double longitude, double ellipsoid_height,
+                                             double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp)
+{
+    sensor_msgs::msg::NavSatFix gps_msg;
+    gps_msg.header.stamp = timestamp;
+    gps_msg.header.frame_id = "base_link"; // Changed to base_link
+    gps_msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
+    gps_msg.status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
+
+    gps_msg.latitude = latitude;
+    gps_msg.longitude = longitude;
+    gps_msg.altitude = ellipsoid_height;
+
+    gps_msg.position_covariance[0] = east_sd * east_sd;
+    gps_msg.position_covariance[4] = north_sd * north_sd;
+    gps_msg.position_covariance[8] = height_sd * height_sd;
+
+    gps_msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_APPROXIMATED;
+
+    return gps_msg;
 }
 
 geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(double easting, double northing, double altitude,

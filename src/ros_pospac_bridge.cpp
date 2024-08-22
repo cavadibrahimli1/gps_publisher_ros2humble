@@ -8,6 +8,7 @@
 #include <GeographicLib/UTMUPS.hpp>
 #include <GeographicLib/MGRS.hpp>
 #include "ros_pospac_bridge/ros_pospac_bridge.hpp"
+#include <Eigen/Geometry>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -96,17 +97,17 @@ void RosPospacBridge::publishGpsData()
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
             // Transform pose to base_link frame and update covariance accordingly
-            auto transformed_pose_msg = transformPoseToBaseLink(pose_msg);
+            // auto transformed_pose_msg = transformPoseToBaseLink(pose_msg);
 
             // Publish the final pose in the base_link frame
-            pose_pub_->publish(transformed_pose_msg);
+            pose_pub_->publish(pose_msg);
 
             // Add the pose to the list of all poses
-            all_poses_.push_back(poseWithCovarianceToPose(transformed_pose_msg));
+            all_poses_.push_back(poseWithCovarianceToPose(pose_msg));
 
             // Create and publish a PoseArray message
             geometry_msgs::msg::PoseArray pose_array_msg;
-            pose_array_msg.header.stamp = transformed_pose_msg.header.stamp;
+            pose_array_msg.header.stamp = pose_msg.header.stamp;
             pose_array_msg.header.frame_id = "base_link";
             pose_array_msg.poses = all_poses_;
 
@@ -126,95 +127,66 @@ void RosPospacBridge::publishGpsData()
     file.close();
 }
 
-geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_msg)
-{
-    geometry_msgs::msg::PoseWithCovarianceStamped transformed_pose_msg = pose_msg;
-    transformed_pose_msg.header.frame_id = "base_link";
+// geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_msg)
+// {
+//     geometry_msgs::msg::PoseWithCovarianceStamped transformed_pose_msg = pose_msg;
+//     transformed_pose_msg.header.frame_id = "base_link";
+//
+//     // Step 1: Apply the GNSS to LiDAR transformation (inverse of the original LiDAR to GNSS transformation)
+//     Eigen::Quaterniond lidar_to_gnss_q = getQuaternionFromRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
+//     Eigen::Quaterniond gnss_to_lidar_q = lidar_to_gnss_q.inverse();
+//     tf2::Vector3 gnss_to_lidar_translation = -1 * tf2::Vector3(lidar_to_gnss_transform_.x, lidar_to_gnss_transform_.y, lidar_to_gnss_transform_.z);
+//
+//     tf2::Quaternion current_orientation(pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y, pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
+//     tf2::Vector3 current_position(pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z);
+//
+//     // Apply the inverse quaternion rotation and translation
+//     tf2::Quaternion transformed_orientation = gnss_to_lidar_q * current_orientation;
+//     transformed_orientation.normalize();
+//
+//     tf2::Vector3 transformed_position = current_position + gnss_to_lidar_translation;
+//
+//     // Step 2: Apply the LiDAR to base_link transformation (unchanged from original)
+//     Eigen::Quaterniond lidar_to_base_q = getQuaternionFromRPY(lidar_to_base_link_transform_.roll, lidar_to_base_link_transform_.pitch, lidar_to_base_link_transform_.yaw);
+//     tf2::Vector3 lidar_to_base_translation(lidar_to_base_link_transform_.x, lidar_to_base_link_transform_.y, lidar_to_base_link_transform_.z);
+//
+//     transformed_orientation = lidar_to_base_q * transformed_orientation;
+//     transformed_orientation.normalize();
+//
+//     transformed_position = transformed_position + lidar_to_base_translation;
+//
+//     // Set the transformed orientation and position
+//     transformed_pose_msg.pose.pose.orientation.x = transformed_orientation.x();
+//     transformed_pose_msg.pose.pose.orientation.y = transformed_orientation.y();
+//     transformed_pose_msg.pose.pose.orientation.z = transformed_orientation.z();
+//     transformed_pose_msg.pose.pose.orientation.w = transformed_orientation.w();
+//
+//     transformed_pose_msg.pose.pose.position.x = transformed_position.x();
+//     transformed_pose_msg.pose.pose.position.y = transformed_position.y();
+//     transformed_pose_msg.pose.pose.position.z = transformed_position.z();
+//
+//
+//     transformed_pose_msg.pose.covariance = transformed_pose_msg.pose.covariance;
+//     return transformed_pose_msg;
+// }
 
-    // Step 1: Apply the GNSS to LiDAR transformation (inverse of the original LiDAR to GNSS transformation)
-    tf2::Quaternion lidar_to_gnss_q = getQuaternionFromRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
-    tf2::Quaternion gnss_to_lidar_q = lidar_to_gnss_q.inverse();
-    tf2::Vector3 gnss_to_lidar_translation = -1 * tf2::Vector3(lidar_to_gnss_transform_.x, lidar_to_gnss_transform_.y, lidar_to_gnss_transform_.z);
-
-    tf2::Quaternion current_orientation(pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y, pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
-    tf2::Vector3 current_position(pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z);
-
-    // Apply the inverse quaternion rotation and translation
-    tf2::Quaternion transformed_orientation = gnss_to_lidar_q * current_orientation;
-    transformed_orientation.normalize();
-
-    tf2::Vector3 transformed_position = current_position + gnss_to_lidar_translation;
-
-    // Step 2: Apply the LiDAR to base_link transformation (unchanged from original)
-    tf2::Quaternion lidar_to_base_q = getQuaternionFromRPY(lidar_to_base_link_transform_.roll, lidar_to_base_link_transform_.pitch, lidar_to_base_link_transform_.yaw);
-    tf2::Vector3 lidar_to_base_translation(lidar_to_base_link_transform_.x, lidar_to_base_link_transform_.y, lidar_to_base_link_transform_.z);
-
-    transformed_orientation = lidar_to_base_q * transformed_orientation;
-    transformed_orientation.normalize();
-
-    transformed_position = transformed_position + lidar_to_base_translation;
-
-    // Set the transformed orientation and position
-    transformed_pose_msg.pose.pose.orientation.x = transformed_orientation.x();
-    transformed_pose_msg.pose.pose.orientation.y = transformed_orientation.y();
-    transformed_pose_msg.pose.pose.orientation.z = transformed_orientation.z();
-    transformed_pose_msg.pose.pose.orientation.w = transformed_orientation.w();
-
-    transformed_pose_msg.pose.pose.position.x = transformed_position.x();
-    transformed_pose_msg.pose.pose.position.y = transformed_position.y();
-    transformed_pose_msg.pose.pose.position.z = transformed_position.z();
-
-    // Transform the covariance for position and orientation
-    tf2::Matrix3x3 rot_matrix(lidar_to_base_q);
-    tf2::Matrix3x3 original_covariance_orientation;
-    tf2::Matrix3x3 original_covariance_position;
-
-    original_covariance_position.setValue(
-        transformed_pose_msg.pose.covariance[0], transformed_pose_msg.pose.covariance[1], transformed_pose_msg.pose.covariance[2],
-        transformed_pose_msg.pose.covariance[6], transformed_pose_msg.pose.covariance[7], transformed_pose_msg.pose.covariance[8],
-        transformed_pose_msg.pose.covariance[12], transformed_pose_msg.pose.covariance[13], transformed_pose_msg.pose.covariance[14]);
-
-    original_covariance_orientation.setValue(
-        transformed_pose_msg.pose.covariance[21], transformed_pose_msg.pose.covariance[22], transformed_pose_msg.pose.covariance[23],
-        transformed_pose_msg.pose.covariance[27], transformed_pose_msg.pose.covariance[28], transformed_pose_msg.pose.covariance[29],
-        transformed_pose_msg.pose.covariance[33], transformed_pose_msg.pose.covariance[34], transformed_pose_msg.pose.covariance[35]);
-
-    tf2::Matrix3x3 transformed_covariance_orientation = rot_matrix * original_covariance_orientation * rot_matrix.transpose();
-    tf2::Matrix3x3 transformed_covariance_position = rot_matrix * original_covariance_position * rot_matrix.transpose();
-
-    // Update covariance matrix with transformed values
-    transformed_pose_msg.pose.covariance[0] = transformed_covariance_position[0][0];
-    transformed_pose_msg.pose.covariance[1] = transformed_covariance_position[0][1];
-    transformed_pose_msg.pose.covariance[2] = transformed_covariance_position[0][2];
-    transformed_pose_msg.pose.covariance[6] = transformed_covariance_position[1][0];
-    transformed_pose_msg.pose.covariance[7] = transformed_covariance_position[1][1];
-    transformed_pose_msg.pose.covariance[8] = transformed_covariance_position[1][2];
-    transformed_pose_msg.pose.covariance[12] = transformed_covariance_position[2][0];
-    transformed_pose_msg.pose.covariance[13] = transformed_covariance_position[2][1];
-    transformed_pose_msg.pose.covariance[14] = transformed_covariance_position[2][2];
-
-    transformed_pose_msg.pose.covariance[21] = transformed_covariance_orientation[0][0];
-    transformed_pose_msg.pose.covariance[22] = transformed_covariance_orientation[0][1];
-    transformed_pose_msg.pose.covariance[23] = transformed_covariance_orientation[0][2];
-    transformed_pose_msg.pose.covariance[27] = transformed_covariance_orientation[1][0];
-    transformed_pose_msg.pose.covariance[28] = transformed_covariance_orientation[1][1];
-    transformed_pose_msg.pose.covariance[29] = transformed_covariance_orientation[1][2];
-    transformed_pose_msg.pose.covariance[33] = transformed_covariance_orientation[2][0];
-    transformed_pose_msg.pose.covariance[34] = transformed_covariance_orientation[2][1];
-    transformed_pose_msg.pose.covariance[35] = transformed_covariance_orientation[2][2];
-
-    return transformed_pose_msg;
-}
-
-tf2::Quaternion RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
+Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
 {
 
     double roll_in_rad = roll * M_PI / 180.0;
     double pitch_in_rad = pitch * M_PI / 180.0;
     double yaw_in_rad = yaw * M_PI / 180.0;
 
-    tf2::Quaternion q;
-    q.setRPY(roll_in_rad, pitch_in_rad, yaw_in_rad);
+    // convert ENU to NED
+    Eigen::AngleAxisd angle_axis_x(roll_in_rad, Eigen::Vector3d::UnitY());
+    Eigen::AngleAxisd angle_axis_y(pitch_in_rad, Eigen::Vector3d::UnitX());
+    Eigen::AngleAxisd angle_axis_z(-yaw_in_rad + 1.5708, Eigen::Vector3d::UnitZ());
+
+
+    Eigen::Matrix3d orientation_enu(angle_axis_z * angle_axis_y * angle_axis_x);
+
+    Eigen::Quaterniond q(orientation_enu);
+
 
     return q;
 }
@@ -256,7 +228,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     pose_msg.pose.pose.position.z = altitude;
 
     // Convert from Euler angles (assuming they are in degrees) to quaternion
-    tf2::Quaternion q = getQuaternionFromRPY(roll, pitch, yaw);
+    Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, yaw);
     pose_msg.pose.pose.orientation.x = q.x();
     pose_msg.pose.pose.orientation.y = q.y();
     pose_msg.pose.pose.orientation.z = q.z();
@@ -291,7 +263,7 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
     imu_msg.header.stamp = timestamp;
     imu_msg.header.frame_id = "base_link"; // Changed to base_link
 
-    tf2::Quaternion q = getQuaternionFromRPY(roll, pitch, yaw);  // Assuming angles are in degrees
+    Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, yaw);  // Assuming angles are in degrees
     imu_msg.orientation.x = q.x();
     imu_msg.orientation.y = q.y();
     imu_msg.orientation.z = q.z();

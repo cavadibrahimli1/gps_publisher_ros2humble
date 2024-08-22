@@ -12,13 +12,12 @@ public:
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_array_pub_;
 private:
-  double origin_latitude_, origin_longitude_, origin_altitude_;
-  double origin_easting_, origin_northing_;
+
+  double origin_easting_;
+  double origin_northing_;
   double initial_altitude_;
-  int origin_zone_;
-  bool origin_northp_;
+
   std::string file_path_;
-  rclcpp::Time last_ros_time_;  // To store the ROS time of the last message
 
   std::vector<geometry_msgs::msg::Pose> all_poses_;  // To accumulate all poses
 

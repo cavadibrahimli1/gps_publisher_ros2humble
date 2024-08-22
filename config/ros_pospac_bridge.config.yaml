@@ -1,0 +1,20 @@
+gps_publisher:
+  ros__parameters:
+    gps_data_file: "/home/melike/projects/other_packages_ws/src/gps_publisher_ros2humble/data/2024_08_16-route3.txt"
+    origin_latitude: 41.026797780921
+    origin_longitude: 28.980012541159
+    origin_altitude: 42.743
+    lidar_to_gnss_transform:
+      x: 0.0
+      y: 0.0
+      z: -0.08
+      roll: 0.007237
+      pitch: -0.0072323
+      yaw: 3.1334945
+    lidar_to_base_link_transform:
+      x: 0.96
+      y: -0.01
+      z: 1.1
+      roll: 0.0
+      pitch: 0.0
+      yaw: -3.0965926

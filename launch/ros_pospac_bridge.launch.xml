@@ -1,12 +1,12 @@
 <launch>
     <!-- Define an argument for the parameter file -->
-    <arg name="param_file" default="$(find-pkg-share gps_publisher)/config/config.yaml"/>
+    <arg name="param_file" default="$(find-pkg-share ros_pospac_bridge)/config/ros_pospac_bridge.config.yaml"/>
 
     <!-- Node definition using the parameter file -->
     <node
-        name="gps_publisher"
-        pkg="gps_publisher"
-        exec="gps_publisher"
+        name="ros_pospac_bridge"
+        pkg="ros_pospac_bridge"
+        exec="ros_pospac_bridge"
         output="screen">
         <param from="$(var param_file)"/>
     </node>

@@ -3,7 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-
+#include <Eigen/Geometry>
 class RosPospacBridge : public rclcpp::Node {
 public:
   RosPospacBridge();
@@ -33,7 +33,7 @@ private:
                                                                 double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time timestamp);
   geometry_msgs::msg::PoseWithCovarianceStamped transformPoseToBaseLink(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_msg);
 
-  tf2::Quaternion getQuaternionFromRPY(double roll, double pitch, double yaw);
+  Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   geometry_msgs::msg::Pose poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
 
   sensor_msgs::msg::Imu createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,

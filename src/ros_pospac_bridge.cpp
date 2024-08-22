@@ -3,6 +3,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/twist.hpp>  // Include Twist message
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <GeographicLib/UTMUPS.hpp>
@@ -24,6 +25,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
     imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu_data", 10);
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_with_covariance", 10);
     pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("pose_array", 10);
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("twist_data", 10);  // Initialize Twist publisher
 
     // Declare parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/javadibrahimli/ros2_ws/route2.txt");
@@ -42,7 +44,6 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
     lidar_to_base_link_transform_.roll  = this->declare_parameter<double>("lidar_to_base_link_transform.roll", 0.0);
     lidar_to_base_link_transform_.pitch = this->declare_parameter<double>("lidar_to_base_link_transform.pitch", 0.0);
     lidar_to_base_link_transform_.yaw   = this->declare_parameter<double>("lidar_to_base_link_transform.yaw", 0.0);
-
 
     int origin_zone_;
     bool origin_northp_;
@@ -96,9 +97,6 @@ void RosPospacBridge::publishGpsData()
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
-            // Transform pose to base_link frame and update covariance accordingly
-            // auto transformed_pose_msg = transformPoseToBaseLink(pose_msg);
-
             // Publish the final pose in the base_link frame
             pose_pub_->publish(pose_msg);
 
@@ -119,7 +117,9 @@ void RosPospacBridge::publishGpsData()
                                             roll_sd, pitch_sd, heading_sd);
             imu_pub_->publish(imu_msg);
 
-            // is_first_line = false;
+            // Publish Twist data
+            publishTwistMessage(east_velocity, north_velocity, up_velocity,
+                                x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
         }
 
         rclcpp::spin_some(this->get_node_base_interface());
@@ -127,52 +127,8 @@ void RosPospacBridge::publishGpsData()
     file.close();
 }
 
-// geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_msg)
-// {
-//     geometry_msgs::msg::PoseWithCovarianceStamped transformed_pose_msg = pose_msg;
-//     transformed_pose_msg.header.frame_id = "base_link";
-//
-//     // Step 1: Apply the GNSS to LiDAR transformation (inverse of the original LiDAR to GNSS transformation)
-//     Eigen::Quaterniond lidar_to_gnss_q = getQuaternionFromRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
-//     Eigen::Quaterniond gnss_to_lidar_q = lidar_to_gnss_q.inverse();
-//     tf2::Vector3 gnss_to_lidar_translation = -1 * tf2::Vector3(lidar_to_gnss_transform_.x, lidar_to_gnss_transform_.y, lidar_to_gnss_transform_.z);
-//
-//     tf2::Quaternion current_orientation(pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y, pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
-//     tf2::Vector3 current_position(pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z);
-//
-//     // Apply the inverse quaternion rotation and translation
-//     tf2::Quaternion transformed_orientation = gnss_to_lidar_q * current_orientation;
-//     transformed_orientation.normalize();
-//
-//     tf2::Vector3 transformed_position = current_position + gnss_to_lidar_translation;
-//
-//     // Step 2: Apply the LiDAR to base_link transformation (unchanged from original)
-//     Eigen::Quaterniond lidar_to_base_q = getQuaternionFromRPY(lidar_to_base_link_transform_.roll, lidar_to_base_link_transform_.pitch, lidar_to_base_link_transform_.yaw);
-//     tf2::Vector3 lidar_to_base_translation(lidar_to_base_link_transform_.x, lidar_to_base_link_transform_.y, lidar_to_base_link_transform_.z);
-//
-//     transformed_orientation = lidar_to_base_q * transformed_orientation;
-//     transformed_orientation.normalize();
-//
-//     transformed_position = transformed_position + lidar_to_base_translation;
-//
-//     // Set the transformed orientation and position
-//     transformed_pose_msg.pose.pose.orientation.x = transformed_orientation.x();
-//     transformed_pose_msg.pose.pose.orientation.y = transformed_orientation.y();
-//     transformed_pose_msg.pose.pose.orientation.z = transformed_orientation.z();
-//     transformed_pose_msg.pose.pose.orientation.w = transformed_orientation.w();
-//
-//     transformed_pose_msg.pose.pose.position.x = transformed_position.x();
-//     transformed_pose_msg.pose.pose.position.y = transformed_position.y();
-//     transformed_pose_msg.pose.pose.position.z = transformed_position.z();
-//
-//
-//     transformed_pose_msg.pose.covariance = transformed_pose_msg.pose.covariance;
-//     return transformed_pose_msg;
-// }
-
 Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
 {
-
     double roll_in_rad = roll * M_PI / 180.0;
     double pitch_in_rad = pitch * M_PI / 180.0;
     double yaw_in_rad = yaw * M_PI / 180.0;
@@ -182,35 +138,11 @@ Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pit
     Eigen::AngleAxisd angle_axis_y(pitch_in_rad, Eigen::Vector3d::UnitX());
     Eigen::AngleAxisd angle_axis_z(-yaw_in_rad + 1.5708, Eigen::Vector3d::UnitZ());
 
-
     Eigen::Matrix3d orientation_enu(angle_axis_z * angle_axis_y * angle_axis_x);
 
     Eigen::Quaterniond q(orientation_enu);
 
-
     return q;
-}
-
-sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
-                                             double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp)
-{
-    sensor_msgs::msg::NavSatFix gps_msg;
-    gps_msg.header.stamp = timestamp;
-    gps_msg.header.frame_id = "base_link"; // Changed to base_link
-    gps_msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
-    gps_msg.status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
-
-    gps_msg.latitude = latitude;
-    gps_msg.longitude = longitude;
-    gps_msg.altitude = ellipsoid_height;
-
-    gps_msg.position_covariance[0] = east_sd * east_sd;
-    gps_msg.position_covariance[4] = north_sd * north_sd;
-    gps_msg.position_covariance[8] = height_sd * height_sd;
-
-    gps_msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_APPROXIMATED;
-
-    return gps_msg;
 }
 
 geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(double easting, double northing, double altitude,
@@ -292,7 +224,23 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
     return imu_msg;
 }
 
+void RosPospacBridge::publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
+                                          double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time) {
+    geometry_msgs::msg::Twist twist_msg;
 
+    // Set linear velocities
+    twist_msg.linear.x = east_velocity;
+    twist_msg.linear.y = north_velocity;
+    twist_msg.linear.z = up_velocity;
+
+    // Set angular velocities
+    twist_msg.angular.x = x_angular_rate;
+    twist_msg.angular.y = y_angular_rate;
+    twist_msg.angular.z = z_angular_rate;
+
+    // Publish the Twist message
+    twist_pub_->publish(twist_msg);
+}
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);

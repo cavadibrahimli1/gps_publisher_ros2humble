@@ -21,14 +21,14 @@
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
     // Initialize publishers
-    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("gps_fix", 10);  // Ensure correct topic name
-    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu_data", 10);
-    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_with_covariance", 10);
-    pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("pose_array", 10);
-    twist_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("twist_data", 10);  // Initialize Twist publisher
+    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);  // Ensure correct topic name
+    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
+    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
+    pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);  // Initialize Twist publisher
 
     // Declare parameters
-    file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/javadibrahimli/ros2_ws/route2.txt");
+    file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
     double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
     double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
     double origin_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
@@ -57,6 +57,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
 void RosPospacBridge::publishGpsData()
 {
+
     std::ifstream file(file_path_);
     if (!file.is_open()) {
         RCLCPP_ERROR(this->get_logger(), "Failed to open file: %s", file_path_.c_str());
@@ -113,13 +114,13 @@ void RosPospacBridge::publishGpsData()
             pose_array_msg.header.stamp = pose_msg.header.stamp;
             pose_array_msg.header.frame_id = "base_link";
             pose_array_msg.poses = all_poses_;
-
             pose_array_pub_->publish(pose_array_msg);
 
             // Publish IMU data
             auto imu_msg = createImuMessage(sensor_time, x_angular_rate, y_angular_rate, z_angular_rate,
                                             x_acceleration, y_acceleration, z_acceleration, roll, pitch, heading,
                                             roll_sd, pitch_sd, heading_sd);
+
             imu_pub_->publish(imu_msg);
 
             // Publish Twist data
@@ -253,20 +254,27 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
 
 void RosPospacBridge::publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
                                           double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time) {
-    geometry_msgs::msg::Twist twist_msg;
+    geometry_msgs::msg::TwistWithCovarianceStamped twist_with_cov_stamped_msg;
+
+    twist_with_cov_stamped_msg.header.stamp = sensor_time;
+    twist_with_cov_stamped_msg.header.frame_id = "base_link";  // Changed to base_link
 
     // Set linear velocities
-    twist_msg.linear.x = east_velocity;
-    twist_msg.linear.y = north_velocity;
-    twist_msg.linear.z = up_velocity;
+    twist_with_cov_stamped_msg.twist.twist.linear.x = east_velocity;
+    twist_with_cov_stamped_msg.twist.twist.linear.y = north_velocity;
+    twist_with_cov_stamped_msg.twist.twist.linear.z = up_velocity;
 
     // Set angular velocities
-    twist_msg.angular.x = x_angular_rate;
-    twist_msg.angular.y = y_angular_rate;
-    twist_msg.angular.z = z_angular_rate;
+    twist_with_cov_stamped_msg.twist.twist.angular.x = x_angular_rate;
+    twist_with_cov_stamped_msg.twist.twist.angular.y = y_angular_rate;
+    twist_with_cov_stamped_msg.twist.twist.angular.z = z_angular_rate;
+
+    twist_with_cov_stamped_msg.twist.covariance[0] = 1.0;  // Variance in X (east velocity)
+    twist_with_cov_stamped_msg.twist.covariance[7] = 1.0;  // Variance in Y (north velocity)
+    twist_with_cov_stamped_msg.twist.covariance[14] = 1.0;  // Variance in Z (up velocity)
 
     // Publish the Twist message
-    twist_pub_->publish(twist_msg);
+    twist_pub_->publish(twist_with_cov_stamped_msg);
 }
 
 int main(int argc, char *argv[]) {

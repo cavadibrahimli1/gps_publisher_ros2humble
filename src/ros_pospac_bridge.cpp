@@ -132,7 +132,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBa
     transformed_pose_msg.header.frame_id = "base_link";
 
     // Step 1: Apply the GNSS to LiDAR transformation (inverse of the original LiDAR to GNSS transformation)
-    tf2::Quaternion lidar_to_gnss_q = toQuaternion(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
+    tf2::Quaternion lidar_to_gnss_q = getQuaternionFromRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
     tf2::Quaternion gnss_to_lidar_q = lidar_to_gnss_q.inverse();
     tf2::Vector3 gnss_to_lidar_translation = -1 * tf2::Vector3(lidar_to_gnss_transform_.x, lidar_to_gnss_transform_.y, lidar_to_gnss_transform_.z);
 
@@ -146,7 +146,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBa
     tf2::Vector3 transformed_position = current_position + gnss_to_lidar_translation;
 
     // Step 2: Apply the LiDAR to base_link transformation (unchanged from original)
-    tf2::Quaternion lidar_to_base_q = toQuaternion(lidar_to_base_link_transform_.roll, lidar_to_base_link_transform_.pitch, lidar_to_base_link_transform_.yaw);
+    tf2::Quaternion lidar_to_base_q = getQuaternionFromRPY(lidar_to_base_link_transform_.roll, lidar_to_base_link_transform_.pitch, lidar_to_base_link_transform_.yaw);
     tf2::Vector3 lidar_to_base_translation(lidar_to_base_link_transform_.x, lidar_to_base_link_transform_.y, lidar_to_base_link_transform_.z);
 
     transformed_orientation = lidar_to_base_q * transformed_orientation;
@@ -206,15 +206,15 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::transformPoseToBa
     return transformed_pose_msg;
 }
 
-tf2::Quaternion RosPospacBridge::toQuaternion(double roll, double pitch, double yaw)
+tf2::Quaternion RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
 {
 
-    roll = roll * M_PI / 180.0;
-    pitch = pitch * M_PI / 180.0;
-    yaw = yaw * M_PI / 180.0;
+    double roll_in_rad = roll * M_PI / 180.0;
+    double pitch_in_rad = pitch * M_PI / 180.0;
+    double yaw_in_rad = yaw * M_PI / 180.0;
 
     tf2::Quaternion q;
-    q.setRPY(roll, pitch, yaw);
+    q.setRPY(roll_in_rad, pitch_in_rad, yaw_in_rad);
 
     return q;
 }
@@ -247,7 +247,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
                                                                 double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time_)
 {
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-    pose_msg.header.stamp = sensor_time_;
+    pose_msg.header.stamp  = sensor_time_;
     pose_msg.header.frame_id = "base_link"; // Changed to base_link
 
     // Set position
@@ -256,7 +256,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     pose_msg.pose.pose.position.z = altitude;
 
     // Convert from Euler angles (assuming they are in degrees) to quaternion
-    tf2::Quaternion q = toQuaternion(roll, pitch, yaw);
+    tf2::Quaternion q = getQuaternionFromRPY(roll, pitch, yaw);
     pose_msg.pose.pose.orientation.x = q.x();
     pose_msg.pose.pose.orientation.y = q.y();
     pose_msg.pose.pose.orientation.z = q.z();
@@ -291,7 +291,7 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
     imu_msg.header.stamp = timestamp;
     imu_msg.header.frame_id = "base_link"; // Changed to base_link
 
-    tf2::Quaternion q = toQuaternion(roll, pitch, yaw);  // Assuming angles are in degrees
+    tf2::Quaternion q = getQuaternionFromRPY(roll, pitch, yaw);  // Assuming angles are in degrees
     imu_msg.orientation.x = q.x();
     imu_msg.orientation.y = q.y();
     imu_msg.orientation.z = q.z();

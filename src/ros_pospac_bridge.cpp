@@ -25,7 +25,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
     pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("pose_array", 10);
 
     // Declare parameters
-    file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/melike/projects/other_packages_ws/src/data/2024_08_16-route3.txt");
+    file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/javadibrahimli/ros2_ws/route2.txt");
     double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
     double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
     double origin_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);

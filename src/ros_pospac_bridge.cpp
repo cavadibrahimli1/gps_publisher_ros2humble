@@ -10,6 +10,7 @@
 #include <GeographicLib/UTMUPS.hpp>
 #include <GeographicLib/MGRS.hpp>
 #include "ros_pospac_bridge/ros_pospac_bridge.hpp"
+#include <GeographicLib/MGRS.hpp>
 #include <Eigen/Geometry>
 #include <fstream>
 #include <string>
@@ -105,42 +106,60 @@ void RosPospacBridge::publishGpsData()
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
+            // Log the input latitude and longitude
+            RCLCPP_INFO(this->get_logger(), "Latitude: %f, Longitude: %f", latitude, longitude);
+
             // Convert latitude and longitude to UTM
             int zone;
             bool northp;
             double utm_easting, utm_northing;
-            GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
+            try {
+                GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
+                RCLCPP_INFO(this->get_logger(), "UTM Conversion: Zone: %d, Northp: %d, Easting: %f, Northing: %f",
+                            zone, northp, utm_easting, utm_northing);
+            } catch (const std::exception& e) {
+                RCLCPP_ERROR(this->get_logger(), "Error converting to UTM: %s", e.what());
+                continue;
+            }
 
             double local_easting = utm_easting - origin_easting_;
             double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height - initial_altitude_;
 
-            // Create and publish GPS Fix message
+            // Convert UTM coordinates to MGRS with proper precision
+            std::string mgrs;
+            try {
+                GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
+                RCLCPP_INFO(this->get_logger(), "MGRS Conversion: %s", mgrs.c_str());
+            } catch (const std::exception& e) {
+                RCLCPP_ERROR(this->get_logger(), "Error converting to MGRS: %s", e.what());
+                continue;
+            }
+
+            // Log the MGRS coordinates
+            RCLCPP_INFO(this->get_logger(), "Final MGRS Coordinates: %s", mgrs.c_str());
+
+            // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (gps_pub_) {
                 auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
                                                 east_sd, north_sd, height_sd, sensor_time);
                 gps_pub_->publish(gps_msg);  // Publish GPS Fix message
             }
 
-            // Create PoseWithCovarianceStamped from GPS data
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
-            // Publish the final pose in the base_link frame
             if (pose_pub_) {
                 pose_pub_->publish(pose_msg);
             }
 
-            // Convert PoseWithCovarianceStamped to PoseStamped and publish
             if (pose_stamped_pub_) {
                 auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            // Add the pose to the list of all poses
             all_poses_.push_back(poseWithCovarianceToPose(pose_msg));
 
-            // Create and publish a PoseArray message
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
                 pose_array_msg.header.stamp = pose_msg.header.stamp;
@@ -149,7 +168,6 @@ void RosPospacBridge::publishGpsData()
                 pose_array_pub_->publish(pose_array_msg);
             }
 
-            // Publish IMU data
             if (imu_pub_) {
                 auto imu_msg = createImuMessage(sensor_time, x_angular_rate, y_angular_rate, z_angular_rate,
                                                 x_acceleration, y_acceleration, z_acceleration, roll, pitch, heading,
@@ -157,7 +175,6 @@ void RosPospacBridge::publishGpsData()
                 imu_pub_->publish(imu_msg);
             }
 
-            // Publish Twist data
             if (twist_pub_) {
                 publishTwistMessage(east_velocity, north_velocity, up_velocity,
                                     x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
@@ -168,6 +185,8 @@ void RosPospacBridge::publishGpsData()
     }
     file.close();
 }
+
+
 
 Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
 {

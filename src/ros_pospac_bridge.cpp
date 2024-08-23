@@ -122,10 +122,6 @@ void RosPospacBridge::publishGpsData()
                 continue;
             }
 
-            double local_easting = utm_easting - origin_easting_;
-            double local_northing = utm_northing - origin_northing_;
-            double relative_altitude = ortho_height - initial_altitude_;
-
             // Convert UTM coordinates to MGRS with proper precision
             std::string mgrs;
             try {
@@ -138,6 +134,19 @@ void RosPospacBridge::publishGpsData()
 
             // Log the MGRS coordinates
             RCLCPP_INFO(this->get_logger(), "Final MGRS Coordinates: %s", mgrs.c_str());
+
+            // Parse the MGRS coordinates
+            double local_easting, local_northing;
+            int prec;
+            bool centerp = true;
+            try {
+                GeographicLib::MGRS::Reverse(mgrs, zone, northp, local_easting, local_northing, prec, centerp);
+            } catch (const std::exception& e) {
+                RCLCPP_ERROR(this->get_logger(), "Error parsing MGRS: %s", e.what());
+                continue;
+            }
+
+            double relative_altitude = ortho_height - initial_altitude_;
 
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (gps_pub_) {
@@ -185,6 +194,7 @@ void RosPospacBridge::publishGpsData()
     }
     file.close();
 }
+
 
 
 
@@ -274,6 +284,10 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
                                        double z_acceleration, double roll, double pitch, double yaw,
                                        double roll_sd, double pitch_sd, double heading_sd)
 {
+    (void)roll_sd;
+    (void)pitch_sd;
+    (void)heading_sd;
+
     sensor_msgs::msg::Imu imu_msg;
     imu_msg.header.stamp = timestamp;
     imu_msg.header.frame_id = "base_link"; // Changed to base_link
@@ -306,6 +320,7 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
 
     return imu_msg;
 }
+
 
 void RosPospacBridge::publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
                                           double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time) {

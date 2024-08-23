@@ -2,18 +2,24 @@
 #define ROS_POSPAC_BRIDGE_ROS_POSPAC_BRIDGE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"  // Include PoseStamped message
 #include <Eigen/Geometry>
-#include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 
 class RosPospacBridge : public rclcpp::Node {
 public:
   RosPospacBridge();
+  
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_array_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;  // Declare Twist publisher
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;  // Declare PoseStamped publisher
 
 private:
   double origin_easting_;
@@ -35,6 +41,7 @@ private:
                                                                 double roll, double pitch, double yaw,
                                                                 double east_sd, double north_sd, double height_sd,
                                                                 double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time timestamp);
+  geometry_msgs::msg::PoseStamped createPoseStampedMessage(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   geometry_msgs::msg::Pose poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
   sensor_msgs::msg::Imu createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,
@@ -42,7 +49,7 @@ private:
                                        double z_acceleration, double roll, double pitch, double yaw,
                                        double roll_sd, double pitch_sd, double heading_sd);
   void publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
-                           double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time);  // Declare method for Twist message
+                           double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time);
 };
 
 #endif  // ROS_POSPAC_BRIDGE_ROS_POSPAC_BRIDGE_HPP_

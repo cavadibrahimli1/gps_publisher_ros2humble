@@ -3,7 +3,8 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
-#include <geometry_msgs/msg/twist.hpp>  // Include Twist message
+#include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>  // Include PoseStamped message
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <GeographicLib/UTMUPS.hpp>
@@ -25,10 +26,11 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
     imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
     pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
     pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
-    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);  // Initialize Twist publisher
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
+    pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);  // Initialize PoseStamped publisher
 
     // Declare parameters
-    file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
+    file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/javadibrahimli/ros2_ws/route2.txt");
     double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
     double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
     double origin_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
@@ -57,7 +59,6 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
 void RosPospacBridge::publishGpsData()
 {
-
     std::ifstream file(file_path_);
     if (!file.is_open()) {
         RCLCPP_ERROR(this->get_logger(), "Failed to open file: %s", file_path_.c_str());
@@ -105,6 +106,10 @@ void RosPospacBridge::publishGpsData()
 
             // Publish the final pose in the base_link frame
             pose_pub_->publish(pose_msg);
+
+            // Convert PoseWithCovarianceStamped to PoseStamped and publish
+            auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
+            pose_stamped_pub_->publish(pose_stamped_msg);
 
             // Add the pose to the list of all poses
             all_poses_.push_back(poseWithCovarianceToPose(pose_msg));
@@ -275,6 +280,13 @@ void RosPospacBridge::publishTwistMessage(double east_velocity, double north_vel
 
     // Publish the Twist message
     twist_pub_->publish(twist_with_cov_stamped_msg);
+}
+
+geometry_msgs::msg::PoseStamped RosPospacBridge::createPoseStampedMessage(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance) {
+    geometry_msgs::msg::PoseStamped pose_stamped_msg;
+    pose_stamped_msg.header = pose_with_covariance.header;
+    pose_stamped_msg.pose = pose_with_covariance.pose.pose;
+    return pose_stamped_msg;
 }
 
 int main(int argc, char *argv[]) {

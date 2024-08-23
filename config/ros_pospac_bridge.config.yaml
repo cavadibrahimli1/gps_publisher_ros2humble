@@ -1,10 +1,21 @@
-ros_pospac_bridge:  # This should match the node name
+ros_pospac_bridge:  # Node name
+
   ros__parameters:
+    # ==============================
+    # === File Paths Configuration ===
+    # ==============================
     gps_data_file: "/home/javadibrahimli/ros2_ws/route2.txt"
+
+    # ===================================
+    # === Geographic Origin Settings ===
+    # ===================================
     origin_latitude: 41.026797780921
     origin_longitude: 28.980012541159
     origin_altitude: 42.743
 
+    # ============================================
+    # === Publisher Control (True/False Flags) ===
+    # ============================================
     start_gps_publisher: true
     start_imu_publisher: true
     start_pose_publisher: true
@@ -12,6 +23,9 @@ ros_pospac_bridge:  # This should match the node name
     start_twist_publisher: true
     start_pose_stamped_publisher: true
 
+    # ==============================
+    # === Transformation Settings ===
+    # ==============================
     lidar_to_gnss_transform:
       x: 0.0
       y: 0.0
@@ -19,6 +33,7 @@ ros_pospac_bridge:  # This should match the node name
       roll: 0.007237
       pitch: -0.0072323
       yaw: 3.1334945
+
     lidar_to_base_link_transform:
       x: 0.96
       y: -0.01

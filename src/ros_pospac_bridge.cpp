@@ -52,31 +52,47 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
     // Declare other parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
-    double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
-    double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
-    double origin_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
-    lidar_to_gnss_transform_.x = this->declare_parameter<double>("lidar_to_gnss_transform.x", 0.0);
-    lidar_to_gnss_transform_.y = this->declare_parameter<double>("lidar_to_gnss_transform.y", 0.0);
-    lidar_to_gnss_transform_.z = this->declare_parameter<double>("lidar_to_gnss_transform.z", 0.0);
-    lidar_to_gnss_transform_.roll = this->declare_parameter<double>("lidar_to_gnss_transform.roll", 0.0);
-    lidar_to_gnss_transform_.pitch = this->declare_parameter<double>("lidar_to_gnss_transform.pitch", 0.0);
-    lidar_to_gnss_transform_.yaw = this->declare_parameter<double>("lidar_to_gnss_transform.yaw", 0.0);
-    lidar_to_base_link_transform_.x = this->declare_parameter<double>("lidar_to_base_link_transform.x", 0.0);
-    lidar_to_base_link_transform_.y = this->declare_parameter<double>("lidar_to_base_link_transform.y", 0.0);
-    lidar_to_base_link_transform_.z = this->declare_parameter<double>("lidar_to_base_link_transform.z", 0.0);
-    lidar_to_base_link_transform_.roll = this->declare_parameter<double>("lidar_to_base_link_transform.roll", 0.0);
-    lidar_to_base_link_transform_.pitch = this->declare_parameter<double>("lidar_to_base_link_transform.pitch", 0.0);
-    lidar_to_base_link_transform_.yaw = this->declare_parameter<double>("lidar_to_base_link_transform.yaw", 0.0);
 
+    // Convert Istanbul's latitude and longitude to MGRS
+    double istanbul_latitude = 41.0082;
+    double istanbul_longitude = 28.9784;
+
+    int istanbul_zone;
+    bool istanbul_northp;
+    double istanbul_easting, istanbul_northing;
+
+    try {
+        GeographicLib::UTMUPS::Forward(istanbul_latitude, istanbul_longitude, istanbul_zone, istanbul_northp, istanbul_easting, istanbul_northing);
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Error converting Istanbul's coordinates to UTM: %s", e.what());
+    }
+
+    std::string istanbul_mgrs;
+    try {
+        GeographicLib::MGRS::Forward(istanbul_zone, istanbul_northp, istanbul_easting, istanbul_northing, 5, istanbul_mgrs);
+        RCLCPP_INFO(this->get_logger(), "Istanbul's MGRS Coordinates: %s", istanbul_mgrs.c_str());
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Error converting to MGRS: %s", e.what());
+    }
+
+    // Use Istanbul's MGRS coordinates as the origin
     int origin_zone_;
     bool origin_northp_;
-    // Convert origin latitude and longitude to UTM
-    GeographicLib::UTMUPS::Forward(origin_latitude_, origin_longitude_, origin_zone_, origin_northp_, origin_easting_, origin_northing_);
-    initial_altitude_ = origin_altitude_;
+    int prec;
+    bool centerp = true;
+    try {
+        GeographicLib::MGRS::Reverse(istanbul_mgrs, origin_zone_, origin_northp_, origin_easting_, origin_northing_, prec, centerp);
+        RCLCPP_INFO(this->get_logger(), "Origin set to Istanbul's MGRS location.");
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Error reversing Istanbul's MGRS coordinates: %s", e.what());
+    }
+
+    initial_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
 
     // Start publishing data
     publishGpsData();
 }
+
 
 void RosPospacBridge::publishGpsData()
 {

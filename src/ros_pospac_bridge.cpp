@@ -273,17 +273,17 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
     imu_msg.linear_acceleration.y = y_acceleration;
     imu_msg.linear_acceleration.z = z_acceleration;
 
-    imu_msg.orientation_covariance[0] = roll_sd > 0 ? roll_sd * roll_sd : 1.0;
-    imu_msg.orientation_covariance[4] = pitch_sd > 0 ? pitch_sd * pitch_sd : 1.0;
-    imu_msg.orientation_covariance[8] = heading_sd > 0 ? heading_sd * heading_sd : 1.0;
+    imu_msg.orientation_covariance[0] = 1.0;
+    imu_msg.orientation_covariance[4] = 1.0;
+    imu_msg.orientation_covariance[8] = 1.0;
 
-    imu_msg.angular_velocity_covariance[0] = 1;
-    imu_msg.angular_velocity_covariance[4] = 1;
-    imu_msg.angular_velocity_covariance[8] = 1;
+    imu_msg.angular_velocity_covariance[0] = 1.0;
+    imu_msg.angular_velocity_covariance[4] = 1.0;
+    imu_msg.angular_velocity_covariance[8] = 1.0;
 
-    imu_msg.linear_acceleration_covariance[0] = 1;
-    imu_msg.linear_acceleration_covariance[4] = 1;
-    imu_msg.linear_acceleration_covariance[8] = 1;
+    imu_msg.linear_acceleration_covariance[0] = 1.0;
+    imu_msg.linear_acceleration_covariance[4] = 1.0;
+    imu_msg.linear_acceleration_covariance[8] = 1.0;
 
     return imu_msg;
 }

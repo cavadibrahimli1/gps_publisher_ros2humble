@@ -21,15 +21,35 @@
 
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
 
-    // Initialize publishers
-    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);  // Ensure correct topic name
-    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
-    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
-    pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
-    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
-    pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);  // Initialize PoseStamped publisher
-
     // Declare parameters
+    bool start_gps_publisher = this->declare_parameter<bool>("start_gps_publisher", true);
+    bool start_imu_publisher = this->declare_parameter<bool>("start_imu_publisher", true);
+    bool start_pose_publisher = this->declare_parameter<bool>("start_pose_publisher", true);
+    bool start_pose_array_publisher = this->declare_parameter<bool>("start_pose_array_publisher", true);
+    bool start_twist_publisher = this->declare_parameter<bool>("start_twist_publisher", true);
+    bool start_pose_stamped_publisher = this->declare_parameter<bool>("start_pose_stamped_publisher", true);
+
+    // Initialize publishers based on parameters
+    if (start_gps_publisher) {
+        gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);
+    }
+    if (start_imu_publisher) {
+        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
+    }
+    if (start_pose_publisher) {
+        pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
+    }
+    if (start_pose_array_publisher) {
+        pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
+    }
+    if (start_twist_publisher) {
+        twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
+    }
+    if (start_pose_stamped_publisher) {
+        pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
+    }
+
+    // Declare other parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "/home/javadibrahimli/ros2_ws/route2.txt");
     double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
     double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
@@ -37,15 +57,15 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
     lidar_to_gnss_transform_.x = this->declare_parameter<double>("lidar_to_gnss_transform.x", 0.0);
     lidar_to_gnss_transform_.y = this->declare_parameter<double>("lidar_to_gnss_transform.y", 0.0);
     lidar_to_gnss_transform_.z = this->declare_parameter<double>("lidar_to_gnss_transform.z", 0.0);
-    lidar_to_gnss_transform_.roll  = this->declare_parameter<double>("lidar_to_gnss_transform.roll", 0.0);
+    lidar_to_gnss_transform_.roll = this->declare_parameter<double>("lidar_to_gnss_transform.roll", 0.0);
     lidar_to_gnss_transform_.pitch = this->declare_parameter<double>("lidar_to_gnss_transform.pitch", 0.0);
-    lidar_to_gnss_transform_.yaw   = this->declare_parameter<double>("lidar_to_gnss_transform.yaw", 0.0);
+    lidar_to_gnss_transform_.yaw = this->declare_parameter<double>("lidar_to_gnss_transform.yaw", 0.0);
     lidar_to_base_link_transform_.x = this->declare_parameter<double>("lidar_to_base_link_transform.x", 0.0);
     lidar_to_base_link_transform_.y = this->declare_parameter<double>("lidar_to_base_link_transform.y", 0.0);
     lidar_to_base_link_transform_.z = this->declare_parameter<double>("lidar_to_base_link_transform.z", 0.0);
-    lidar_to_base_link_transform_.roll  = this->declare_parameter<double>("lidar_to_base_link_transform.roll", 0.0);
+    lidar_to_base_link_transform_.roll = this->declare_parameter<double>("lidar_to_base_link_transform.roll", 0.0);
     lidar_to_base_link_transform_.pitch = this->declare_parameter<double>("lidar_to_base_link_transform.pitch", 0.0);
-    lidar_to_base_link_transform_.yaw   = this->declare_parameter<double>("lidar_to_base_link_transform.yaw", 0.0);
+    lidar_to_base_link_transform_.yaw = this->declare_parameter<double>("lidar_to_base_link_transform.yaw", 0.0);
 
     int origin_zone_;
     bool origin_northp_;
@@ -96,41 +116,52 @@ void RosPospacBridge::publishGpsData()
             double relative_altitude = ortho_height - initial_altitude_;
 
             // Create and publish GPS Fix message
-            auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
-                                            east_sd, north_sd, height_sd, sensor_time);
-            gps_pub_->publish(gps_msg);  // Publish GPS Fix message
+            if (gps_pub_) {
+                auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
+                                                east_sd, north_sd, height_sd, sensor_time);
+                gps_pub_->publish(gps_msg);  // Publish GPS Fix message
+            }
 
             // Create PoseWithCovarianceStamped from GPS data
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
             // Publish the final pose in the base_link frame
-            pose_pub_->publish(pose_msg);
+            if (pose_pub_) {
+                pose_pub_->publish(pose_msg);
+            }
 
             // Convert PoseWithCovarianceStamped to PoseStamped and publish
-            auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
-            pose_stamped_pub_->publish(pose_stamped_msg);
+            if (pose_stamped_pub_) {
+                auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
+                pose_stamped_pub_->publish(pose_stamped_msg);
+            }
 
             // Add the pose to the list of all poses
             all_poses_.push_back(poseWithCovarianceToPose(pose_msg));
 
             // Create and publish a PoseArray message
-            geometry_msgs::msg::PoseArray pose_array_msg;
-            pose_array_msg.header.stamp = pose_msg.header.stamp;
-            pose_array_msg.header.frame_id = "base_link";
-            pose_array_msg.poses = all_poses_;
-            pose_array_pub_->publish(pose_array_msg);
+            if (pose_array_pub_) {
+                geometry_msgs::msg::PoseArray pose_array_msg;
+                pose_array_msg.header.stamp = pose_msg.header.stamp;
+                pose_array_msg.header.frame_id = "base_link";
+                pose_array_msg.poses = all_poses_;
+                pose_array_pub_->publish(pose_array_msg);
+            }
 
             // Publish IMU data
-            auto imu_msg = createImuMessage(sensor_time, x_angular_rate, y_angular_rate, z_angular_rate,
-                                            x_acceleration, y_acceleration, z_acceleration, roll, pitch, heading,
-                                            roll_sd, pitch_sd, heading_sd);
-
-            imu_pub_->publish(imu_msg);
+            if (imu_pub_) {
+                auto imu_msg = createImuMessage(sensor_time, x_angular_rate, y_angular_rate, z_angular_rate,
+                                                x_acceleration, y_acceleration, z_acceleration, roll, pitch, heading,
+                                                roll_sd, pitch_sd, heading_sd);
+                imu_pub_->publish(imu_msg);
+            }
 
             // Publish Twist data
-            publishTwistMessage(east_velocity, north_velocity, up_velocity,
-                                x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
+            if (twist_pub_) {
+                publishTwistMessage(east_velocity, north_velocity, up_velocity,
+                                    x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
+            }
         }
 
         rclcpp::spin_some(this->get_node_base_interface());

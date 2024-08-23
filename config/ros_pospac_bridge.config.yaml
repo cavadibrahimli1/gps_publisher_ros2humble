@@ -1,10 +1,17 @@
-/**:
+ros_pospac_bridge:  # This should match the node name
   ros__parameters:
-
     gps_data_file: "/home/javadibrahimli/ros2_ws/route2.txt"
     origin_latitude: 41.026797780921
     origin_longitude: 28.980012541159
     origin_altitude: 42.743
+
+    start_gps_publisher: true
+    start_imu_publisher: true
+    start_pose_publisher: true
+    start_pose_array_publisher: true
+    start_twist_publisher: true
+    start_pose_stamped_publisher: true
+
     lidar_to_gnss_transform:
       x: 0.0
       y: 0.0

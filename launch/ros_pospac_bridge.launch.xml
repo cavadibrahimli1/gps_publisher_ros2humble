@@ -1,13 +1,9 @@
 <launch>
-    <!-- Define an argument for the parameter file -->
-    <arg name="param_file" default="$(find-pkg-share ros_pospac_bridge)/config/ros_pospac_bridge.config.yaml"/>
-
-    <!-- Node definition using the parameter file -->
     <node
         name="ros_pospac_bridge"
         pkg="ros_pospac_bridge"
         exec="ros_pospac_bridge"
         output="screen">
-        <param from="$(var param_file)"/>
+        <param from="$(find-pkg-share ros_pospac_bridge)/config/ros_pospac_bridge.config.yaml"/>
     </node>
 </launch>

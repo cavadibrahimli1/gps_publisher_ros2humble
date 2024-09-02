@@ -4,12 +4,12 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>  // Include PoseStamped message
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
 #include <GeographicLib/UTMUPS.hpp>
-#include <GeographicLib/MGRS.hpp>
-#include "ros_pospac_bridge/ros_pospac_bridge.hpp"
 #include <GeographicLib/MGRS.hpp>
 #include <Eigen/Geometry>
 #include <fstream>
@@ -18,68 +18,102 @@
 #include <chrono>
 #include <thread>
 #include <memory>
-#include <cmath>  // For M_PI and conversion functions
+#include <cmath>
 
-RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge"){
+class RosPospacBridge : public rclcpp::Node {
+public:
+  RosPospacBridge();
+
+private:
+  void publishGpsData();
+  Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
+  sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
+                                               double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp);
+  geometry_msgs::msg::PoseWithCovarianceStamped createPoseMessage(double easting, double northing, double altitude,
+                                                                  double roll, double pitch, double yaw,
+                                                                  double east_sd, double north_sd, double height_sd,
+                                                                  double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time timestamp);
+  geometry_msgs::msg::PoseStamped createPoseStampedMessage(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
+  geometry_msgs::msg::Pose poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
+  sensor_msgs::msg::Imu createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,
+                                         double z_angular_rate, double x_acceleration, double y_acceleration,
+                                         double z_acceleration, double roll, double pitch, double yaw,
+                                         double roll_sd, double pitch_sd, double heading_sd);
+  void publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
+                           double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time);
+  geometry_msgs::msg::Pose transformPoseToMapFrame(const geometry_msgs::msg::Pose& pose);
+
+  rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_array_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;
+
+  double origin_easting_;
+  double origin_northing_;
+  double initial_altitude_;
+
+  std::string file_path_;
+
+  std::vector<geometry_msgs::msg::Pose> all_poses_;  // To accumulate all poses
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+};
+
+RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
+    // Initialize transform buffer and listener
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Declare parameters
-    bool start_gps_publisher = this->declare_parameter<bool>("start_gps_publisher", true);
-    bool start_imu_publisher = this->declare_parameter<bool>("start_imu_publisher", true);
-    bool start_pose_publisher = this->declare_parameter<bool>("start_pose_publisher", true);
-    bool start_pose_array_publisher = this->declare_parameter<bool>("start_pose_array_publisher", true);
-    bool start_twist_publisher = this->declare_parameter<bool>("start_twist_publisher", true);
-    bool start_pose_stamped_publisher = this->declare_parameter<bool>("start_pose_stamped_publisher", true);
-
-    // Initialize publishers based on parameters
-    if (start_gps_publisher) {
-        gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);
-    }
-    if (start_imu_publisher) {
-        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
-    }
-    if (start_pose_publisher) {
-        pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
-    }
-    if (start_pose_array_publisher) {
-        pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
-    }
-    if (start_twist_publisher) {
-        twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
-    }
-    if (start_pose_stamped_publisher) {
-        pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
-    }
-
-    // Declare other parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
-    double origin_latitude_ = this->declare_parameter<double>("origin_latitude", 0.0);
-    double origin_longitude_ = this->declare_parameter<double>("origin_longitude", 0.0);
-    double origin_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
-    lidar_to_gnss_transform_.x = this->declare_parameter<double>("lidar_to_gnss_transform.x", 0.0);
-    lidar_to_gnss_transform_.y = this->declare_parameter<double>("lidar_to_gnss_transform.y", 0.0);
-    lidar_to_gnss_transform_.z = this->declare_parameter<double>("lidar_to_gnss_transform.z", 0.0);
-    lidar_to_gnss_transform_.roll = this->declare_parameter<double>("lidar_to_gnss_transform.roll", 0.0);
-    lidar_to_gnss_transform_.pitch = this->declare_parameter<double>("lidar_to_gnss_transform.pitch", 0.0);
-    lidar_to_gnss_transform_.yaw = this->declare_parameter<double>("lidar_to_gnss_transform.yaw", 0.0);
-    lidar_to_base_link_transform_.x = this->declare_parameter<double>("lidar_to_base_link_transform.x", 0.0);
-    lidar_to_base_link_transform_.y = this->declare_parameter<double>("lidar_to_base_link_transform.y", 0.0);
-    lidar_to_base_link_transform_.z = this->declare_parameter<double>("lidar_to_base_link_transform.z", 0.0);
-    lidar_to_base_link_transform_.roll = this->declare_parameter<double>("lidar_to_base_link_transform.roll", 0.0);
-    lidar_to_base_link_transform_.pitch = this->declare_parameter<double>("lidar_to_base_link_transform.pitch", 0.0);
-    lidar_to_base_link_transform_.yaw = this->declare_parameter<double>("lidar_to_base_link_transform.yaw", 0.0);
+    RCLCPP_INFO(this->get_logger(), "GPS data file path: %s", file_path_.c_str());
 
-    int origin_zone_;
-    bool origin_northp_;
-    // Convert origin latitude and longitude to UTM
-    GeographicLib::UTMUPS::Forward(origin_latitude_, origin_longitude_, origin_zone_, origin_northp_, origin_easting_, origin_northing_);
-    initial_altitude_ = origin_altitude_;
+    std::string mgrs_origin = this->declare_parameter<std::string>("mgrs_origin", "");
+    initial_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
+
+    int zone;
+    bool northp;
+    int precision;
+    bool centerp = true;
+
+    try {
+        GeographicLib::MGRS::Reverse(mgrs_origin, zone, northp, origin_easting_, origin_northing_, precision, centerp);
+        RCLCPP_INFO(this->get_logger(), "MGRS Origin: %s converted to UTM: easting %f, northing %f", mgrs_origin.c_str(), origin_easting_, origin_northing_);
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to convert MGRS origin: %s", e.what());
+        return;
+    }
+
+    // Initialize publishers
+    gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);
+    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
+    pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
+    pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
+    pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
 
     // Start publishing data
     publishGpsData();
 }
 
-void RosPospacBridge::publishGpsData()
-{
+geometry_msgs::msg::Pose RosPospacBridge::transformPoseToMapFrame(const geometry_msgs::msg::Pose& pose) {
+    geometry_msgs::msg::Pose transformed_pose = pose;
+
+    try {
+        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform("map", "base_link", rclcpp::Time(0));
+        tf2::doTransform(pose, transformed_pose, transform_stamped);
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Could not transform pose: %s", ex.what());
+    }
+
+    return transformed_pose;
+}
+
+void RosPospacBridge::publishGpsData() {
+    RCLCPP_INFO(this->get_logger(), "Attempting to open GPS data file at: %s", file_path_.c_str());
+
     std::ifstream file(file_path_);
     if (!file.is_open()) {
         RCLCPP_ERROR(this->get_logger(), "Failed to open file: %s", file_path_.c_str());
@@ -88,8 +122,14 @@ void RosPospacBridge::publishGpsData()
 
     std::string line;
 
-    while (std::getline(file, line) && rclcpp::ok())
-    {
+    while (std::getline(file, line) && rclcpp::ok()) {
+        if (line.empty()) {
+            RCLCPP_WARN(this->get_logger(), "Encountered an empty line, skipping...");
+            continue;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Processing line: %s", line.c_str());
+
         std::istringstream iss(line);
         double time, distance, easting, northing, ortho_height, latitude, longitude, ellipsoid_height;
         double roll, pitch, heading, east_velocity, north_velocity, up_velocity;
@@ -98,16 +138,13 @@ void RosPospacBridge::publishGpsData()
         double east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd;
 
         if (iss >> time >> distance >> easting >> northing >> ortho_height >> latitude >> longitude >> ellipsoid_height
-                >> roll >> pitch >> heading >> east_velocity >> north_velocity >> up_velocity
-                >> x_angular_rate >> y_angular_rate >> z_angular_rate
-                >> x_acceleration >> y_acceleration >> z_acceleration
-                >> east_sd >> north_sd >> height_sd >> roll_sd >> pitch_sd >> heading_sd)
-        {
+               >> roll >> pitch >> heading >> east_velocity >> north_velocity >> up_velocity
+               >> x_angular_rate >> y_angular_rate >> z_angular_rate
+               >> x_acceleration >> y_acceleration >> z_acceleration
+               >> east_sd >> north_sd >> height_sd >> roll_sd >> pitch_sd >> heading_sd) {
+            RCLCPP_INFO(this->get_logger(), "Parsed line successfully.");
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
-
-            // Log the input latitude and longitude
-            RCLCPP_INFO(this->get_logger(), "Latitude: %f, Longitude: %f", latitude, longitude);
 
             // Convert latitude and longitude to UTM
             int zone;
@@ -115,8 +152,6 @@ void RosPospacBridge::publishGpsData()
             double utm_easting, utm_northing;
             try {
                 GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
-                RCLCPP_INFO(this->get_logger(), "UTM Conversion: Zone: %d, Northp: %d, Easting: %f, Northing: %f",
-                            zone, northp, utm_easting, utm_northing);
             } catch (const std::exception& e) {
                 RCLCPP_ERROR(this->get_logger(), "Error converting to UTM: %s", e.what());
                 continue;
@@ -126,30 +161,20 @@ void RosPospacBridge::publishGpsData()
             double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height - initial_altitude_;
 
-            // Convert UTM coordinates to MGRS with proper precision
-            std::string mgrs;
-            try {
-                GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
-                RCLCPP_INFO(this->get_logger(), "MGRS Conversion: %s", mgrs.c_str());
-            } catch (const std::exception& e) {
-                RCLCPP_ERROR(this->get_logger(), "Error converting to MGRS: %s", e.what());
-                continue;
-            }
-
-            // Log the MGRS coordinates
-            RCLCPP_INFO(this->get_logger(), "Final MGRS Coordinates: %s", mgrs.c_str());
-
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (gps_pub_) {
                 auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
                                                 east_sd, north_sd, height_sd, sensor_time);
-                gps_pub_->publish(gps_msg);  // Publish GPS Fix message
+                gps_pub_->publish(gps_msg);
             }
 
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
+            geometry_msgs::msg::Pose transformed_pose = transformPoseToMapFrame(pose_msg.pose.pose);
+
             if (pose_pub_) {
+                pose_msg.pose.pose = transformed_pose;
                 pose_pub_->publish(pose_msg);
             }
 
@@ -158,12 +183,12 @@ void RosPospacBridge::publishGpsData()
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            all_poses_.push_back(poseWithCovarianceToPose(pose_msg));
+            all_poses_.push_back(transformed_pose);
 
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
                 pose_array_msg.header.stamp = pose_msg.header.stamp;
-                pose_array_msg.header.frame_id = "base_link";
+                pose_array_msg.header.frame_id = "map";  // Ensure this is correct
                 pose_array_msg.poses = all_poses_;
                 pose_array_pub_->publish(pose_array_msg);
             }
@@ -179,6 +204,8 @@ void RosPospacBridge::publishGpsData()
                 publishTwistMessage(east_velocity, north_velocity, up_velocity,
                                     x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
             }
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Failed to parse line: %s", line.c_str());
         }
 
         rclcpp::spin_some(this->get_node_base_interface());
@@ -186,15 +213,12 @@ void RosPospacBridge::publishGpsData()
     file.close();
 }
 
-
-
-Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw)
-{
+Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pitch, double yaw) {
     double roll_in_rad = roll * M_PI / 180.0;
     double pitch_in_rad = pitch * M_PI / 180.0;
     double yaw_in_rad = yaw * M_PI / 180.0;
 
-    // convert ENU to NED
+    // Convert ENU to NED
     Eigen::AngleAxisd angle_axis_x(roll_in_rad, Eigen::Vector3d::UnitY());
     Eigen::AngleAxisd angle_axis_y(pitch_in_rad, Eigen::Vector3d::UnitX());
     Eigen::AngleAxisd angle_axis_z(-yaw_in_rad + 1.5708, Eigen::Vector3d::UnitZ());
@@ -207,11 +231,10 @@ Eigen::Quaterniond RosPospacBridge::getQuaternionFromRPY(double roll, double pit
 }
 
 sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, double longitude, double ellipsoid_height,
-                                             double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp)
-{
+                                             double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp) {
     sensor_msgs::msg::NavSatFix gps_msg;
     gps_msg.header.stamp = timestamp;
-    gps_msg.header.frame_id = "base_link"; // Changed to base_link
+    gps_msg.header.frame_id = "map";  // Ensure consistent frame ID
     gps_msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
     gps_msg.status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
 
@@ -231,11 +254,10 @@ sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, d
 geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(double easting, double northing, double altitude,
                                                                 double roll, double pitch, double yaw,
                                                                 double east_sd, double north_sd, double height_sd,
-                                                                double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time_)
-{
+                                                                double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time_) {
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
     pose_msg.header.stamp  = sensor_time_;
-    pose_msg.header.frame_id = "base_link"; // Changed to base_link
+    pose_msg.header.frame_id = "map";  // Ensure consistent frame ID
 
     // Set position
     pose_msg.pose.pose.position.x = easting;
@@ -261,8 +283,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     return pose_msg;
 }
 
-geometry_msgs::msg::Pose RosPospacBridge::poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance)
-{
+geometry_msgs::msg::Pose RosPospacBridge::poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance) {
     geometry_msgs::msg::Pose pose;
     pose.position = pose_with_covariance.pose.pose.position;
     pose.orientation = pose_with_covariance.pose.pose.orientation;
@@ -270,13 +291,13 @@ geometry_msgs::msg::Pose RosPospacBridge::poseWithCovarianceToPose(const geometr
 }
 
 sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,
-                                       double z_angular_rate, double x_acceleration, double y_acceleration,
-                                       double z_acceleration, double roll, double pitch, double yaw,
-                                       double roll_sd, double pitch_sd, double heading_sd)
-{
+                                                        double z_angular_rate, double x_acceleration, double y_acceleration,
+                                                        double z_acceleration, double roll, double pitch, double yaw,
+                                                        double roll_sd, double pitch_sd, double heading_sd) {
+    // Create the IMU message
     sensor_msgs::msg::Imu imu_msg;
     imu_msg.header.stamp = timestamp;
-    imu_msg.header.frame_id = "base_link"; // Changed to base_link
+    imu_msg.header.frame_id = "map";  // Ensure consistent frame ID
 
     Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, yaw);  // Assuming angles are in degrees
     imu_msg.orientation.x = q.x();
@@ -312,7 +333,7 @@ void RosPospacBridge::publishTwistMessage(double east_velocity, double north_vel
     geometry_msgs::msg::TwistWithCovarianceStamped twist_with_cov_stamped_msg;
 
     twist_with_cov_stamped_msg.header.stamp = sensor_time;
-    twist_with_cov_stamped_msg.header.frame_id = "base_link";  // Changed to base_link
+    twist_with_cov_stamped_msg.header.frame_id = "map";  // Ensure consistent frame ID
 
     // Set linear velocities
     twist_with_cov_stamped_msg.twist.twist.linear.x = east_velocity;
@@ -336,6 +357,7 @@ geometry_msgs::msg::PoseStamped RosPospacBridge::createPoseStampedMessage(const 
     geometry_msgs::msg::PoseStamped pose_stamped_msg;
     pose_stamped_msg.header = pose_with_covariance.header;
     pose_stamped_msg.pose = pose_with_covariance.pose.pose;
+    pose_stamped_msg.header.frame_id = "map";  // Ensure consistent frame ID
     return pose_stamped_msg;
 }
 

@@ -161,6 +161,16 @@ void RosPospacBridge::publishGpsData() {
             double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height - initial_altitude_;
 
+            // Convert UTM coordinates to MGRS for output
+            std::string mgrs;
+            try {
+                GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
+                RCLCPP_INFO(this->get_logger(), "MGRS location: %s", mgrs.c_str());
+            } catch (const std::exception& e) {
+                RCLCPP_ERROR(this->get_logger(), "Error converting to MGRS: %s", e.what());
+                continue;
+            }
+
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (gps_pub_) {
                 auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,

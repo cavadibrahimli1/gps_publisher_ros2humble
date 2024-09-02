@@ -1,4 +1,13 @@
 <launch>
+    <!-- Static transform between map and base_link -->
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        args="66457.90214 43622.34122 41.59660501443883 0 0 0 1 map base_link"
+        name="static_transform_publisher"
+        output="screen"/>
+
+    <!-- Node definition using the parameter file -->
     <node
         name="ros_pospac_bridge"
         pkg="ros_pospac_bridge"

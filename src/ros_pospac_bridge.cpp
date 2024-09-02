@@ -9,6 +9,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <GeographicLib/UTMUPS.hpp>
 #include <GeographicLib/MGRS.hpp>
 #include <Eigen/Geometry>
@@ -26,6 +27,7 @@ public:
 
 private:
   void publishGpsData();
+  void publishMapToGnssTransform(const geometry_msgs::msg::Pose& pose, const rclcpp::Time& timestamp);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
                                                double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp);
@@ -59,12 +61,14 @@ private:
   std::vector<geometry_msgs::msg::Pose> all_poses_;  // To accumulate all poses
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;  // Transform broadcaster for map_to_gnss
 };
 
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     // Initialize transform buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
     // Declare parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
@@ -109,6 +113,22 @@ geometry_msgs::msg::Pose RosPospacBridge::transformPoseToMapFrame(const geometry
     }
 
     return transformed_pose;
+}
+
+void RosPospacBridge::publishMapToGnssTransform(const geometry_msgs::msg::Pose& pose, const rclcpp::Time& timestamp) {
+    geometry_msgs::msg::TransformStamped transform_stamped;
+
+    transform_stamped.header.stamp = timestamp;
+    transform_stamped.header.frame_id = "map";
+    transform_stamped.child_frame_id = "map_to_gnss";
+
+    transform_stamped.transform.translation.x = pose.position.x;
+    transform_stamped.transform.translation.y = pose.position.y;
+    transform_stamped.transform.translation.z = pose.position.z;
+
+    transform_stamped.transform.rotation = pose.orientation;
+
+    tf_broadcaster_->sendTransform(transform_stamped);
 }
 
 void RosPospacBridge::publishGpsData() {
@@ -201,6 +221,9 @@ void RosPospacBridge::publishGpsData() {
                 pose_array_msg.header.frame_id = "map";  // Ensure this is correct
                 pose_array_msg.poses = all_poses_;
                 pose_array_pub_->publish(pose_array_msg);
+
+                // Publish the transform from map to the last pose (GNSS)
+                publishMapToGnssTransform(transformed_pose, pose_msg.header.stamp);
             }
 
             if (imu_pub_) {

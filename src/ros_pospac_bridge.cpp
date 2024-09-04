@@ -34,7 +34,7 @@ private:
   geometry_msgs::msg::PoseWithCovarianceStamped createPoseMessage(double easting, double northing, double altitude,
                                                                   double roll, double pitch, double yaw,
                                                                   double east_sd, double north_sd, double height_sd,
-                                                                  double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time timestamp);
+                                                                  double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time timestamp, const std::string& mgrs);
   geometry_msgs::msg::PoseStamped createPoseStampedMessage(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
   geometry_msgs::msg::Pose poseWithCovarianceToPose(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance);
   sensor_msgs::msg::Imu createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,
@@ -72,7 +72,6 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 
     // Declare parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
-    RCLCPP_INFO(this->get_logger(), "GPS data file path: %s", file_path_.c_str());
 
     std::string mgrs_origin = this->declare_parameter<std::string>("mgrs_origin", "");
     initial_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
@@ -83,11 +82,8 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     bool centerp = true;
 
     try {
-        // GeographicLib::MGRS::Reverse(mgrs_origin, zone, northp, origin_easting_, origin_northing_, precision, centerp);
         GeographicLib::MGRS::Reverse("35TPF0000000100000001", zone, northp, origin_easting_, origin_northing_, precision, centerp);
-        RCLCPP_INFO(this->get_logger(), "MGRS Origin: %s converted to UTM: easting %f, northing %f", mgrs_origin.c_str(), origin_easting_, origin_northing_);
     } catch (const std::exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to convert MGRS origin: %s", e.what());
         return;
     }
 
@@ -133,23 +129,17 @@ void RosPospacBridge::publishMapToGnssTransform(const geometry_msgs::msg::Pose& 
 }
 
 void RosPospacBridge::publishGpsData() {
-    RCLCPP_INFO(this->get_logger(), "Attempting to open GPS data file at: %s", file_path_.c_str());
-
     std::ifstream file(file_path_);
     if (!file.is_open()) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to open file: %s", file_path_.c_str());
-        return;
+        return;  // Silently handle file open failure
     }
 
     std::string line;
 
     while (std::getline(file, line) && rclcpp::ok()) {
         if (line.empty()) {
-            RCLCPP_WARN(this->get_logger(), "Encountered an empty line, skipping...");
-            continue;
+            continue;  // Skip empty lines silently
         }
-
-        RCLCPP_INFO(this->get_logger(), "Processing line: %s", line.c_str());
 
         std::istringstream iss(line);
         double time, distance, easting, northing, ortho_height, latitude, longitude, ellipsoid_height;
@@ -163,34 +153,21 @@ void RosPospacBridge::publishGpsData() {
                >> x_angular_rate >> y_angular_rate >> z_angular_rate
                >> x_acceleration >> y_acceleration >> z_acceleration
                >> east_sd >> north_sd >> height_sd >> roll_sd >> pitch_sd >> heading_sd) {
-            RCLCPP_INFO(this->get_logger(), "Parsed line successfully.");
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
-            // Convert latitude and longitude to UTM
             int zone;
             bool northp;
             double utm_easting, utm_northing;
-            try {
-                GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
-            } catch (const std::exception& e) {
-                RCLCPP_ERROR(this->get_logger(), "Error converting to UTM: %s", e.what());
-                continue;
-            }
+            GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
 
             double local_easting = utm_easting - origin_easting_;
             double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height - initial_altitude_;
 
-            // Convert UTM coordinates to MGRS for output
             std::string mgrs;
-            try {
-                GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
-                RCLCPP_INFO(this->get_logger(), "MGRS location: %s", mgrs.c_str());
-            } catch (const std::exception& e) {
-                RCLCPP_ERROR(this->get_logger(), "Error converting to MGRS: %s", e.what());
-                continue;
-            }
+            GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
+            RCLCPP_INFO(this->get_logger(), "MGRS location: %s, Relative X: %f, Relative Y: %f", mgrs.c_str(), local_easting, local_northing);
 
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (gps_pub_) {
@@ -200,7 +177,7 @@ void RosPospacBridge::publishGpsData() {
             }
 
             auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
-                                              east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
+                                              east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
             geometry_msgs::msg::Pose transformed_pose = transformPoseToMapFrame(pose_msg.pose.pose);
 
@@ -219,11 +196,10 @@ void RosPospacBridge::publishGpsData() {
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
                 pose_array_msg.header.stamp = pose_msg.header.stamp;
-                pose_array_msg.header.frame_id = "map";  // Ensure this is correct
+                pose_array_msg.header.frame_id = "map";
                 pose_array_msg.poses = all_poses_;
                 pose_array_pub_->publish(pose_array_msg);
 
-                // Publish the transform from map to the last pose (GNSS)
                 publishMapToGnssTransform(transformed_pose, pose_msg.header.stamp);
             }
 
@@ -238,11 +214,7 @@ void RosPospacBridge::publishGpsData() {
                 publishTwistMessage(east_velocity, north_velocity, up_velocity,
                                     x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
             }
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to parse line: %s", line.c_str());
         }
-
-        rclcpp::spin_some(this->get_node_base_interface());
     }
     file.close();
 }
@@ -288,10 +260,10 @@ sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, d
 geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(double easting, double northing, double altitude,
                                                                 double roll, double pitch, double yaw,
                                                                 double east_sd, double north_sd, double height_sd,
-                                                                double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time_) {
+                                                                double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time, const std::string& mgrs) {
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-    pose_msg.header.stamp  = sensor_time_;
-    pose_msg.header.frame_id = "map";  // Ensure consistent frame ID
+    pose_msg.header.stamp = sensor_time;
+    pose_msg.header.frame_id = "map_to_gnss";  // Changed from mgrs to "map_to_gnss"
 
     // Set position
     pose_msg.pose.pose.position.x = easting;
@@ -309,7 +281,6 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     pose_msg.pose.covariance[0] = east_sd * east_sd;    // Variance in X (easting)
     pose_msg.pose.covariance[7] = north_sd * north_sd;  // Variance in Y (northing)
     pose_msg.pose.covariance[14] = height_sd * height_sd;  // Variance in Z (altitude)
-
     pose_msg.pose.covariance[21] = roll_sd * roll_sd;   // Variance in roll
     pose_msg.pose.covariance[28] = pitch_sd * pitch_sd; // Variance in pitch
     pose_msg.pose.covariance[35] = yaw_sd * yaw_sd;     // Variance in yaw
@@ -402,3 +373,4 @@ int main(int argc, char *argv[]) {
     rclcpp::shutdown();
     return 0;
 }
+

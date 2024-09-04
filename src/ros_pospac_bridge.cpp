@@ -83,7 +83,8 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     bool centerp = true;
 
     try {
-        GeographicLib::MGRS::Reverse(mgrs_origin, zone, northp, origin_easting_, origin_northing_, precision, centerp);
+        // GeographicLib::MGRS::Reverse(mgrs_origin, zone, northp, origin_easting_, origin_northing_, precision, centerp);
+        GeographicLib::MGRS::Reverse("35TPF0000000100000001", zone, northp, origin_easting_, origin_northing_, precision, centerp);
         RCLCPP_INFO(this->get_logger(), "MGRS Origin: %s converted to UTM: easting %f, northing %f", mgrs_origin.c_str(), origin_easting_, origin_northing_);
     } catch (const std::exception& e) {
         RCLCPP_ERROR(this->get_logger(), "Failed to convert MGRS origin: %s", e.what());

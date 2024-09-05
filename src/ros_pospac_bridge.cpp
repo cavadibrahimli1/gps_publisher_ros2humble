@@ -263,7 +263,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
                                                                 double roll_sd, double pitch_sd, double yaw_sd, rclcpp::Time sensor_time, const std::string& mgrs) {
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
     pose_msg.header.stamp = sensor_time;
-    pose_msg.header.frame_id = "map_to_gnss";  // Changed from mgrs to "map_to_gnss"
+    pose_msg.header.frame_id = "map";  // Changed from mgrs to "map_to_gnss"
 
     // Set position
     pose_msg.pose.pose.position.x = easting;

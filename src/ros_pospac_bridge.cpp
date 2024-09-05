@@ -117,7 +117,7 @@ void RosPospacBridge::publishMapToGnssTransform(const geometry_msgs::msg::Pose& 
 
     transform_stamped.header.stamp = timestamp;
     transform_stamped.header.frame_id = "map";
-    transform_stamped.child_frame_id = "map_to_gnss";
+    transform_stamped.child_frame_id = "gnss_ins";  // Changed from "map_to_gnss" to "gnss_ins"
 
     transform_stamped.transform.translation.x = pose.position.x;
     transform_stamped.transform.translation.y = pose.position.y;

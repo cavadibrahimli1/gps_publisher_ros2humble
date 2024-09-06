@@ -50,6 +50,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pose_array_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr gnss_ins_pose_array_pub_;
 
   double origin_easting_;
   double origin_northing_;
@@ -58,6 +59,7 @@ private:
   std::string file_path_;
 
   std::vector<geometry_msgs::msg::Pose> all_poses_;  // To accumulate all poses
+  std::vector<geometry_msgs::msg::Pose> gnss_ins_poses_;  // To accumulate GNSS_INS poses
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
@@ -100,6 +102,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
     twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_data", 10);
     pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
+    gnss_ins_pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/gnss_ins_pose_array", 10);
 
     // Initialize the transformation between lidar and gnss_ins
     lidar_to_gnss_transform_ = {
@@ -178,6 +181,25 @@ void RosPospacBridge::publishBaseLinkToGnssTransform(const rclcpp::Time& timesta
 
     // Publish the transform
     tf_broadcaster_->sendTransform(transform_stamped);
+
+    // Handle GNSS_INS pose array
+    geometry_msgs::msg::Pose gnss_ins_pose;
+    gnss_ins_pose.position.x = lidar_to_gnss_transform_.x;
+    gnss_ins_pose.position.y = lidar_to_gnss_transform_.y;
+    gnss_ins_pose.position.z = lidar_to_gnss_transform_.z;
+    tf2::Quaternion q_gnss_ins;
+    q_gnss_ins.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
+    gnss_ins_pose.orientation = tf2::toMsg(q_gnss_ins);
+
+    gnss_ins_poses_.push_back(gnss_ins_pose);
+
+    if (gnss_ins_pose_array_pub_) {
+        geometry_msgs::msg::PoseArray pose_array_msg;
+        pose_array_msg.header.stamp = timestamp;
+        pose_array_msg.header.frame_id = "gnss_ins";
+        pose_array_msg.poses = gnss_ins_poses_;
+        gnss_ins_pose_array_pub_->publish(pose_array_msg);
+    }
 }
 
 void RosPospacBridge::publishGpsData() {

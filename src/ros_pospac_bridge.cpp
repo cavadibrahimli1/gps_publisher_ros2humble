@@ -124,7 +124,8 @@ geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_
     tf2::fromMsg(lidar_pose.orientation, q_orig);
 
     // Rotation transformation from lidar to base_link
-    q_rot.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
+    // Adjust yaw by adding PI (180 degrees) to rotate the base link orientation
+    q_rot.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw + M_PI);
     q_final = q_rot * q_orig;
     q_final.normalize();
 
@@ -217,7 +218,13 @@ void RosPospacBridge::publishGpsData() {
             double relative_altitude = ortho_height - initial_altitude_;
 
             std::string mgrs;
-            GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 5, mgrs);
+            GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
+
+            double mgrs_x = std::stod(mgrs.substr(5, 8))/1000;
+            double mgrs_y = std::stod(mgrs.substr(13, 8))/1000;
+
+            local_easting = mgrs_x;
+            local_northing = mgrs_y;
             RCLCPP_INFO(this->get_logger(), "MGRS location: %s, Relative X: %f, Relative Y: %f", mgrs.c_str(), local_easting, local_northing);
 
             // Continue with publishing GPS, Pose, IMU, and Twist messages
@@ -227,7 +234,7 @@ void RosPospacBridge::publishGpsData() {
                 gps_pub_->publish(gps_msg);
             }
 
-            auto pose_msg = createPoseMessage(local_easting, local_northing, relative_altitude, roll, pitch, heading,
+            auto pose_msg = createPoseMessage(mgrs_x, mgrs_y, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
             geometry_msgs::msg::Pose lidar_pose = pose_msg.pose.pose;

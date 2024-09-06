@@ -215,7 +215,7 @@ void RosPospacBridge::publishGpsData() {
 
             double local_easting = utm_easting - origin_easting_;
             double local_northing = utm_northing - origin_northing_;
-            double relative_altitude = ortho_height - initial_altitude_;
+            double relative_altitude = ortho_height;  // Use actual ortho_height directly
 
             std::string mgrs;
             GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
@@ -330,7 +330,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     // Use the MGRS-relative coordinates for the pose position
     pose_msg.pose.pose.position.x = local_easting;  // Relative X
     pose_msg.pose.pose.position.y = local_northing; // Relative Y
-    pose_msg.pose.pose.position.z = altitude;  // You can keep the altitude unchanged
+    pose_msg.pose.pose.position.z = altitude;  // Use actual altitude directly
 
     // Convert from Euler angles (degrees) to quaternion
     Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, yaw);

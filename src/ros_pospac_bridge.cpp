@@ -156,16 +156,6 @@ void RosPospacBridge::publishGpsData() {
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
-            int zone;
-            bool northp;
-            double utm_easting, utm_northing;
-            GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
-
-            double relative_altitude = ortho_height;  // Use actual ortho_height directly
-
-            std::string mgrs;
-            GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
-
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (enable_gps_pub_ && gps_pub_) {
                 auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
@@ -173,8 +163,8 @@ void RosPospacBridge::publishGpsData() {
                 gps_pub_->publish(gps_msg);
             }
 
-            auto pose_msg = createPoseMessage(latitude, longitude, relative_altitude, roll, pitch, heading,
-                                              east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
+            auto pose_msg = createPoseMessage(latitude, longitude, ortho_height, roll, pitch, heading,
+                                              east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
 
             geometry_msgs::msg::Pose base_link_pose = pose_msg.pose.pose;
 
@@ -261,7 +251,7 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     double roll, double pitch, double yaw,
     double east_sd, double north_sd, double height_sd,
     double roll_sd, double pitch_sd, double yaw_sd, 
-    rclcpp::Time sensor_time, const std::string& mgrs) {
+    rclcpp::Time sensor_time) {
 
     geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
     pose_msg.header.stamp = sensor_time;
@@ -272,6 +262,9 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     bool northp;
     double utm_easting, utm_northing;
     GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
+
+    std::string mgrs;
+    GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
 
     // Convert MGRS to UTM in order 
     double mgrs_x = std::stod(mgrs.substr(5, 8)) / 1000; 

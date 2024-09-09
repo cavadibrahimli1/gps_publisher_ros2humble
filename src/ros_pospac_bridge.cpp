@@ -186,7 +186,7 @@ void RosPospacBridge::publishGpsData() {
             auto pose_msg = createPoseMessage(latitude, longitude, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
-            geometry_msgs::msg::Pose gnss_ins_pose = pose_msg.pose.pose;
+            geometry_msgs::msg::Pose base_link_pose = pose_msg.pose.pose;
 
             if (pose_pub_) {
                 pose_pub_->publish(pose_msg);
@@ -197,7 +197,7 @@ void RosPospacBridge::publishGpsData() {
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            all_poses_.push_back(gnss_ins_pose);
+            all_poses_.push_back(base_link_pose);
 
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
@@ -208,7 +208,7 @@ void RosPospacBridge::publishGpsData() {
             }
 
             // Publish map -> base_link (initialized using GNSS) and base_link -> gnss_ins transforms
-            publishMapToBaseLinkTransform(gnss_ins_pose, sensor_time);
+            publishMapToBaseLinkTransform(base_link_pose, sensor_time);
             publishBaseLinkToGnssTransform(sensor_time);
 
             if (imu_pub_) {
@@ -308,9 +308,31 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     pose_msg.pose.covariance[28] = pitch_sd * pitch_sd; // Variance in pitch
     pose_msg.pose.covariance[35] = yaw_sd * yaw_sd;     // Variance in yaw
 
+    // Transform pose to base_link frame
+    pose_msg.pose.pose = transformPoseToBaseLink(pose_msg.pose.pose);
+
     return pose_msg;
 }
 
+geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose) {
+    geometry_msgs::msg::Pose base_link_pose = pose;
+
+    // Apply GNSS to base_link transform
+    tf2::Quaternion q_orig, q_rot, q_final;
+    tf2::fromMsg(pose.orientation, q_orig);
+
+    // Rotation transformation from GNSS to base_link
+    q_rot.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw + M_PI);
+    q_final = q_rot * q_orig;
+    q_final.normalize();
+
+    base_link_pose.orientation = tf2::toMsg(q_final);
+    base_link_pose.position.x += lidar_to_gnss_transform_.x;
+    base_link_pose.position.y += lidar_to_gnss_transform_.y;
+    base_link_pose.position.z += lidar_to_gnss_transform_.z;
+
+    return base_link_pose;
+}
 
 geometry_msgs::msg::PoseStamped RosPospacBridge::createPoseStampedMessage(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_with_covariance) {
     geometry_msgs::msg::PoseStamped pose_stamped_msg;

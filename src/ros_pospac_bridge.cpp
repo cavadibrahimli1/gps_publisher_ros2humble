@@ -273,7 +273,8 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     double utm_easting, utm_northing;
     GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
 
-    double mgrs_x = std::stod(mgrs.substr(5, 8)) / 1000;
+    // Convert MGRS to UTM in order 
+    double mgrs_x = std::stod(mgrs.substr(5, 8)) / 1000; 
     double mgrs_y = std::stod(mgrs.substr(13, 8)) / 1000;
 
     // Use the MGRS-relative coordinates for the pose position

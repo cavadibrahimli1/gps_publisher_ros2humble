@@ -70,7 +70,6 @@ private:
   std::string file_path_;
 
   std::vector<geometry_msgs::msg::Pose> all_poses_;  // To accumulate all poses
-  std::vector<geometry_msgs::msg::Pose> gnss_ins_poses_;  // To accumulate GNSS_INS poses
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

@@ -78,9 +78,6 @@ private:
     double x, y, z, roll, pitch, yaw;
   } lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
 
-  // Function to initialize the base link using the GNSS pose
-  geometry_msgs::msg::Pose initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_ins_pose);
-
   // New method to transform pose to base_link frame
   geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
 

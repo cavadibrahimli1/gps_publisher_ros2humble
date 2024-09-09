@@ -88,29 +88,7 @@ void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Po
     tf_broadcaster_->sendTransform(transform_stamped);
 }
 
-geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_ins_pose) {
-    geometry_msgs::msg::Pose base_link_pose = gnss_ins_pose;
-
-    // Apply GNSS to base_link transform
-    tf2::Quaternion q_orig, q_rot, q_final;
-    tf2::fromMsg(gnss_ins_pose.orientation, q_orig);
-
-    // Rotation transformation from GNSS to base_link
-    q_rot.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
-    q_final = q_rot * q_orig;
-    q_final.normalize();
-
-    base_link_pose.orientation = tf2::toMsg(q_final);
-    base_link_pose.position.x += lidar_to_gnss_transform_.x;
-    base_link_pose.position.y += lidar_to_gnss_transform_.y;
-    base_link_pose.position.z += lidar_to_gnss_transform_.z;
-
-    return base_link_pose;
-}
-
 geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::Pose& gnss_pose) {
-
-
     tf2::Transform tf_map2gnss_transform;
     tf2::fromMsg(gnss_pose, tf_map2gnss_transform);
 
@@ -125,7 +103,6 @@ geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry
 
     geometry_msgs::msg::Pose pose_in_base_link;
     tf2::toMsg(tf_map2base_link, pose_in_base_link);
-
 
     return pose_in_base_link;
 }

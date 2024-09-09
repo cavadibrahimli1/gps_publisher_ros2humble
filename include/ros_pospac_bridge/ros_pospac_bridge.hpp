@@ -31,7 +31,6 @@ public:
 private:
   void publishGpsData();
   void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_ins_pose, const rclcpp::Time& timestamp);
-  // Removed declaration of publishBaseLinkToGnssTransform
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
                                                double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp);
@@ -85,6 +84,9 @@ private:
 
   // New method to transform pose to base_link frame
   geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
+
+  // New method to load parameters
+  void loadParameters();
 };
 
 #endif  // ROS_POSPAC_BRIDGE_HPP

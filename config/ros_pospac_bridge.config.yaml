@@ -4,27 +4,41 @@ ros_pospac_bridge:
     mgrs_origin: "35TPF6645943620"  # Replace with your MGRS origin
     origin_altitude: 42.743
 
-    # Publisher Control (True/False Flags)
-    start_gps_publisher: true
-    start_imu_publisher: true
-    start_pose_publisher: true
-    start_pose_array_publisher: true
-    start_twist_publisher: true
-    start_pose_stamped_publisher: true
+    publishers:
+      nav_sat_fix:
+        enable: true
+        topic: "/ros_pospac_bridge/gps_fix"
+      imu:
+        enable: true
+        topic: "/ros_pospac_bridge/imu_data"
+      pose_with_covariance_stamped:
+        enable: true
+        topic: "/ros_pospac_bridge/pose_with_covariance"
+      pose_array:
+        enable: true
+        topic: "/ros_pospac_bridge/pose_array"
+      twist_with_covariance_stamped:
+        enable: true
+        topic: "/ros_pospac_bridge/twist_with_covariance"
+      pose_stamped:
+        enable: true
+        topic: "/ros_pospac_bridge/pose_stamped"
+      tf:
+        enable: true 
 
-    # Transformation Settings
-    lidar_to_gnss_transform:
-      x: 0.0
-      y: 0.0
-      z: -0.08
-      roll: 0.007237
-      pitch: -0.0072323
-      yaw: 3.1334945
+    calibration:
+      lidar_to_gnss:
+        x: 0.0
+        y: 0.0
+        z: -0.08
+        roll: 0.007237
+        pitch: -0.0072323
+        yaw: 3.1334945
 
-    lidar_to_base_link_transform:
-      x: 0.96
-      y: -0.01
-      z: 1.1
-      roll: 0.0
-      pitch: 0.0
-      yaw: -3.0965926
+      base_link_to_lidar:
+        x: 0.96
+        y: -0.01
+        z: 1.1
+        roll: 0.0
+        pitch: 0.0
+        yaw: -3.0965926

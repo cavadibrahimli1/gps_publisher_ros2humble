@@ -45,15 +45,15 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     publishGpsData();
 }
 
-// Function to initialize base_link based on lidar (point cloud) pose
-geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_msgs::msg::Pose& lidar_pose) {
-    geometry_msgs::msg::Pose base_link_pose = lidar_pose;
+// Function to initialize base_link based on GNSS pose
+geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_pose) {
+    geometry_msgs::msg::Pose base_link_pose = gnss_pose;
 
-    // Apply LiDAR to GNSS transform
+    // Apply GNSS to base_link transform
     tf2::Quaternion q_orig, q_rot, q_final;
-    tf2::fromMsg(lidar_pose.orientation, q_orig);
+    tf2::fromMsg(gnss_pose.orientation, q_orig);
 
-    // Rotation transformation from lidar to base_link
+    // Rotation transformation from GNSS to base_link
     // Adjust yaw by adding PI (180 degrees) to rotate the base link orientation
     q_rot.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw + M_PI);
     q_final = q_rot * q_orig;
@@ -67,16 +67,16 @@ geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_
     return base_link_pose;
 }
 
-// Publish transform: map -> base_link (with base_link initialized based on LiDAR pose)
-void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& lidar_pose, const rclcpp::Time& timestamp) {
+// Publish transform: map -> base_link (with base_link initialized based on GNSS pose)
+void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_pose, const rclcpp::Time& timestamp) {
     geometry_msgs::msg::TransformStamped transform_stamped;
-    geometry_msgs::msg::Pose base_link_pose = initializeBaseLinkPose(lidar_pose);
+    geometry_msgs::msg::Pose base_link_pose = initializeBaseLinkPose(gnss_pose);
 
     transform_stamped.header.stamp = timestamp;
     transform_stamped.header.frame_id = "map";  // Parent frame (map)
     transform_stamped.child_frame_id = "base_link";  // Child frame (robot base)
 
-    // Set translation (base_link's global position based on LiDAR pose)
+    // Set translation (base_link's global position based on GNSS pose)
     transform_stamped.transform.translation.x = base_link_pose.position.x;
     transform_stamped.transform.translation.y = base_link_pose.position.y;
     transform_stamped.transform.translation.z = base_link_pose.position.z;
@@ -186,7 +186,7 @@ void RosPospacBridge::publishGpsData() {
             auto pose_msg = createPoseMessage(mgrs_x, mgrs_y, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
-            geometry_msgs::msg::Pose lidar_pose = pose_msg.pose.pose;
+            geometry_msgs::msg::Pose gnss_pose = pose_msg.pose.pose;
 
             if (pose_pub_) {
                 pose_pub_->publish(pose_msg);
@@ -197,7 +197,7 @@ void RosPospacBridge::publishGpsData() {
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            all_poses_.push_back(lidar_pose);
+            all_poses_.push_back(gnss_pose);
 
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
@@ -207,8 +207,8 @@ void RosPospacBridge::publishGpsData() {
                 pose_array_pub_->publish(pose_array_msg);
             }
 
-            // Publish map -> base_link (initialized using point cloud) and base_link -> gnss_ins transforms
-            publishMapToBaseLinkTransform(lidar_pose, sensor_time);
+            // Publish map -> base_link (initialized using GNSS) and base_link -> gnss_ins transforms
+            publishMapToBaseLinkTransform(gnss_pose, sensor_time);
             publishBaseLinkToGnssTransform(sensor_time);
 
             if (imu_pub_) {

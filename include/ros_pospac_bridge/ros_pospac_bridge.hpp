@@ -30,7 +30,7 @@ public:
 
 private:
   void publishGpsData();
-  void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& lidar_pose, const rclcpp::Time& timestamp);
+  void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_pose, const rclcpp::Time& timestamp);
   void publishBaseLinkToGnssTransform(const rclcpp::Time& timestamp);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
@@ -72,8 +72,8 @@ private:
     double x, y, z, roll, pitch, yaw;
   } lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
 
-  // Function to initialize the base link using the point cloud (lidar) pose
-  geometry_msgs::msg::Pose initializeBaseLinkPose(const geometry_msgs::msg::Pose& lidar_pose);
+  // Function to initialize the base link using the GNSS pose
+  geometry_msgs::msg::Pose initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_pose);
 };
 
 #endif  // ROS_POSPAC_BRIDGE_HPP

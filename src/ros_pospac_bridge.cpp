@@ -183,7 +183,7 @@ void RosPospacBridge::publishGpsData() {
                 gps_pub_->publish(gps_msg);
             }
 
-            auto pose_msg = createPoseMessage(mgrs_x, mgrs_y, relative_altitude, roll, pitch, heading,
+            auto pose_msg = createPoseMessage(latitude, longitude, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
             geometry_msgs::msg::Pose gnss_pose = pose_msg.pose.pose;
@@ -266,7 +266,7 @@ sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, d
 }
 
 geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(
-    double local_easting, double local_northing, double altitude,
+    double latitude, double longitude, double altitude,
     double roll, double pitch, double yaw,
     double east_sd, double north_sd, double height_sd,
     double roll_sd, double pitch_sd, double yaw_sd, 
@@ -276,9 +276,21 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     pose_msg.header.stamp = sensor_time;
     pose_msg.header.frame_id = "map";  // Make sure this matches your map frame
 
+    // Convert latitude and longitude to MGRS
+    int zone;
+    bool northp;
+    double utm_easting, utm_northing;
+    GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
+
+    std::string mgrs;
+    GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
+
+    double mgrs_x = std::stod(mgrs.substr(5, 8)) / 1000;
+    double mgrs_y = std::stod(mgrs.substr(13, 8)) / 1000;
+
     // Use the MGRS-relative coordinates for the pose position
-    pose_msg.pose.pose.position.x = local_easting;  // Relative X
-    pose_msg.pose.pose.position.y = local_northing; // Relative Y
+    pose_msg.pose.pose.position.x = mgrs_x;  // Relative X
+    pose_msg.pose.pose.position.y = mgrs_y;  // Relative Y
     pose_msg.pose.pose.position.z = altitude;  // Use actual altitude directly
 
     // Convert from Euler angles (degrees) to quaternion

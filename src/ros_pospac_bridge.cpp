@@ -113,47 +113,6 @@ void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Po
     tf_broadcaster_->sendTransform(transform_stamped);
 }
 
-// Publish transform: base_link -> gnss_ins
-void RosPospacBridge::publishBaseLinkToGnssTransform(const rclcpp::Time& timestamp) {
-    geometry_msgs::msg::TransformStamped transform_stamped;
-
-    transform_stamped.header.stamp = timestamp;
-    transform_stamped.header.frame_id = "base_link";  // Parent frame (base_link)
-    transform_stamped.child_frame_id = "gnss_ins";  // Child frame (gnss sensor)
-
-    // Set translation (based on lidar_to_gnss transform)
-    transform_stamped.transform.translation.x = lidar_to_gnss_transform_.x;
-    transform_stamped.transform.translation.y = lidar_to_gnss_transform_.y;
-    transform_stamped.transform.translation.z = lidar_to_gnss_transform_.z;
-
-    // Set rotation (based on lidar_to_gnss orientation)
-    tf2::Quaternion q;
-    q.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
-    transform_stamped.transform.rotation = tf2::toMsg(q);
-
-    // Publish the transform
-    tf_broadcaster_->sendTransform(transform_stamped);
-
-    // Handle GNSS_INS pose array
-    geometry_msgs::msg::Pose gnss_ins_pose;
-    gnss_ins_pose.position.x = lidar_to_gnss_transform_.x;
-    gnss_ins_pose.position.y = lidar_to_gnss_transform_.y;
-    gnss_ins_pose.position.z = lidar_to_gnss_transform_.z;
-    tf2::Quaternion q_gnss_ins;
-    q_gnss_ins.setRPY(lidar_to_gnss_transform_.roll, lidar_to_gnss_transform_.pitch, lidar_to_gnss_transform_.yaw);
-    gnss_ins_pose.orientation = tf2::toMsg(q_gnss_ins);
-
-    gnss_ins_poses_.push_back(gnss_ins_pose);
-
-    if (gnss_ins_pose_array_pub_) {
-        geometry_msgs::msg::PoseArray pose_array_msg;
-        pose_array_msg.header.stamp = timestamp;
-        pose_array_msg.header.frame_id = "gnss_ins";
-        pose_array_msg.poses = gnss_ins_poses_;
-        gnss_ins_pose_array_pub_->publish(pose_array_msg);
-    }
-}
-
 void RosPospacBridge::publishGpsData() {
     std::ifstream file(file_path_);
     if (!file.is_open()) {
@@ -228,10 +187,9 @@ void RosPospacBridge::publishGpsData() {
                 pose_array_pub_->publish(pose_array_msg);
             }
 
-            // Publish map -> base_link (initialized using GNSS) and base_link -> gnss_ins transforms
+            // Publish map -> base_link (initialized using GNSS) transform
             if (enable_tf_pub_) {
                 publishMapToBaseLinkTransform(base_link_pose, sensor_time);
-                publishBaseLinkToGnssTransform(sensor_time);
             }
 
             if (enable_imu_pub_ && imu_pub_) {

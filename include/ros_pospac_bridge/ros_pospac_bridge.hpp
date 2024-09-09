@@ -74,9 +74,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  struct Transform {
-    double x, y, z, roll, pitch, yaw;
-  } lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
+  tf2::Transform lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
 
   // New method to transform pose to base_link frame
   geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);

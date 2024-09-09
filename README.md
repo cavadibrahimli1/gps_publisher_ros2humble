@@ -2,6 +2,8 @@
 
 ## Overview
 
+
+
 The `ros_pospac_bridge` is a ROS 2 package designed to process GPS data and convert it into various ROS message formats, including PoseWithCovariance, IMU, and Twist. The package also transforms poses into a consistent map frame using tf2, making it useful for localization and navigation tasks in robotic systems.
 
 ## Prerequisites
@@ -99,9 +101,6 @@ Expected Terminal Output:
 
 2. Launch Autoware Simulation
 
-```bash
-
-```
 ```bash
 $ source ~/autoware/install/setup.bash
 $ ros2 launch autoware_launch logging_simulator.launch.xml map_path:=/home/javadibrahimli/autoware_map/test_route2 vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit

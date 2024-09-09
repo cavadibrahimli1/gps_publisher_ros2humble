@@ -35,7 +35,7 @@ private:
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
                                                double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp);
-  geometry_msgs::msg::PoseWithCovarianceStamped createPoseMessage(double mgrs_x, double mgrs_y, double altitude,
+  geometry_msgs::msg::PoseWithCovarianceStamped createPoseMessage(double latitude, double longitude, double altitude,
                                                                   double roll, double pitch, double yaw,
                                                                   double east_sd, double north_sd, double height_sd,
                                                                   double roll_sd, double pitch_sd, double yaw_sd, 

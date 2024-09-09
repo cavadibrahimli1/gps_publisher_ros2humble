@@ -12,7 +12,6 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 
     std::string mgrs_origin = this->declare_parameter<std::string>("mgrs_origin", "");
     
-    // Extract MGRS origin to UTM
     int zone;
     bool northp;
     int precision;

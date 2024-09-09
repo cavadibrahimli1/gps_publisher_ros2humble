@@ -187,8 +187,6 @@ void RosPospacBridge::publishGpsData() {
             double utm_easting, utm_northing;
             GeographicLib::UTMUPS::Forward(latitude, longitude, zone, northp, utm_easting, utm_northing);
 
-            double local_easting = utm_easting - origin_easting_;
-            double local_northing = utm_northing - origin_northing_;
             double relative_altitude = ortho_height;  // Use actual ortho_height directly
 
             std::string mgrs;
@@ -197,9 +195,7 @@ void RosPospacBridge::publishGpsData() {
             double mgrs_x = std::stod(mgrs.substr(5, 8))/1000;
             double mgrs_y = std::stod(mgrs.substr(13, 8))/1000;
 
-            local_easting = mgrs_x;
-            local_northing = mgrs_y;
-            RCLCPP_INFO(this->get_logger(), "MGRS location: %s, Relative X: %f, Relative Y: %f", mgrs.c_str(), local_easting, local_northing);
+            // RCLCPP_INFO(this->get_logger(), "MGRS location: %s, Relative X: %f, Relative Y: %f", mgrs.c_str(), mgrs_x, mgrs_y);
 
             // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (enable_gps_pub_ && gps_pub_) {

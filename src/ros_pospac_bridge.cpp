@@ -46,12 +46,12 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 }
 
 // Function to initialize base_link based on GNSS pose
-geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_pose) {
-    geometry_msgs::msg::Pose base_link_pose = gnss_pose;
+geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_msgs::msg::Pose& gnss_ins_pose) {
+    geometry_msgs::msg::Pose base_link_pose = gnss_ins_pose;
 
     // Apply GNSS to base_link transform
     tf2::Quaternion q_orig, q_rot, q_final;
-    tf2::fromMsg(gnss_pose.orientation, q_orig);
+    tf2::fromMsg(gnss_ins_pose.orientation, q_orig);
 
     // Rotation transformation from GNSS to base_link
     // Adjust yaw by adding PI (180 degrees) to rotate the base link orientation
@@ -68,9 +68,9 @@ geometry_msgs::msg::Pose RosPospacBridge::initializeBaseLinkPose(const geometry_
 }
 
 // Publish transform: map -> base_link (with base_link initialized based on GNSS pose)
-void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_pose, const rclcpp::Time& timestamp) {
+void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_ins_pose, const rclcpp::Time& timestamp) {
     geometry_msgs::msg::TransformStamped transform_stamped;
-    geometry_msgs::msg::Pose base_link_pose = initializeBaseLinkPose(gnss_pose);
+    geometry_msgs::msg::Pose base_link_pose = initializeBaseLinkPose(gnss_ins_pose);
 
     transform_stamped.header.stamp = timestamp;
     transform_stamped.header.frame_id = "map";  // Parent frame (map)
@@ -186,7 +186,7 @@ void RosPospacBridge::publishGpsData() {
             auto pose_msg = createPoseMessage(latitude, longitude, relative_altitude, roll, pitch, heading,
                                               east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time, mgrs);
 
-            geometry_msgs::msg::Pose gnss_pose = pose_msg.pose.pose;
+            geometry_msgs::msg::Pose gnss_ins_pose = pose_msg.pose.pose;
 
             if (pose_pub_) {
                 pose_pub_->publish(pose_msg);
@@ -197,7 +197,7 @@ void RosPospacBridge::publishGpsData() {
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            all_poses_.push_back(gnss_pose);
+            all_poses_.push_back(gnss_ins_pose);
 
             if (pose_array_pub_) {
                 geometry_msgs::msg::PoseArray pose_array_msg;
@@ -208,7 +208,7 @@ void RosPospacBridge::publishGpsData() {
             }
 
             // Publish map -> base_link (initialized using GNSS) and base_link -> gnss_ins transforms
-            publishMapToBaseLinkTransform(gnss_pose, sensor_time);
+            publishMapToBaseLinkTransform(gnss_ins_pose, sensor_time);
             publishBaseLinkToGnssTransform(sensor_time);
 
             if (imu_pub_) {

@@ -64,21 +64,21 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 }
 
 void RosPospacBridge::loadParameters() {
-    // Get parameters for lidar_to_gnss_transform
-    tf2::Transform lidar_to_gnss_transform;
-    lidar_to_gnss_transform.setOrigin(tf2::Vector3(
+    // Get parameters for gnss_to_base_link_transform
+    tf2::Transform gnss_to_base_link_transform;
+    gnss_to_base_link_transform.setOrigin(tf2::Vector3(
         this->declare_parameter<double>("calibration.lidar_to_gnss.x", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.y", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.z", 0.0)
     ));
-    tf2::Quaternion q;
-    q.setRPY(
+    tf2::Quaternion q_rot;
+    q_rot.setRPY(
         this->declare_parameter<double>("calibration.lidar_to_gnss.roll", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.pitch", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.yaw", 0.0)
     );
-    lidar_to_gnss_transform.setRotation(q);
-    lidar_to_gnss_transform_ = lidar_to_gnss_transform;
+    gnss_to_base_link_transform.setRotation(q_rot);
+    lidar_to_gnss_transform_ = gnss_to_base_link_transform;
 }
 
 geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::Pose& gnss_pose) {

@@ -5,7 +5,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
     bool enable_gps_pub_ = this->declare_parameter<bool>("publishers.nav_sat_fix.enable", true);
     bool enable_imu_pub_ = this->declare_parameter<bool>("publishers.imu.enable", true);
-    bool enable_pose_pub_ = this->declare_parameter<bool>("publishers.pose_with_covariance_stamped.enable", true);
+    bool enable_pose_with_cov_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_with_covariance_stamped.enable", true);
     bool enable_pose_array_pub_ = this->declare_parameter<bool>("publishers.pose_array.enable", true);
     bool enable_twist_pub_ = this->declare_parameter<bool>("publishers.twist_with_covariance_stamped.enable", true);
     bool enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
@@ -19,9 +19,9 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
         std::string imu_topic = this->declare_parameter<std::string>("publishers.imu.topic", "/ros_pospac_bridge/imu_data");
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic, 10);
     }
-    if (enable_pose_pub_) {
-        std::string pose_topic = this->declare_parameter<std::string>("publishers.pose_with_covariance_stamped.topic", "/ros_pospac_bridge/pose_with_covariance");
-        pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(pose_topic, 10);
+    if (enable_pose_with_cov_stamped_pub_) {
+        std::string pose_with_covariance_stamped_topic = this->declare_parameter<std::string>("publishers.pose_with_covariance_stamped.topic", "/ros_pospac_bridge/pose_with_covariance");
+        pose_with_cov_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(pose_with_covariance_stamped_topic, 10);
     }
     if (enable_pose_array_pub_) {
         std::string pose_array_topic = this->declare_parameter<std::string>("publishers.pose_array.topic", "/ros_pospac_bridge/pose_array");
@@ -81,7 +81,7 @@ geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry
     tf2::fromMsg(gnss_pose, tf_map2gnss_transform);
 
     // Apply lidar_to_gnss_transform and then base_link_to_lidar_transform
-    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_ * base_link_to_lidar_transform_;
+    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_.inverse() * base_link_to_lidar_transform_.inverse();
 
     geometry_msgs::msg::Pose pose_in_base_link;
     tf2::toMsg(tf_map2base_link, pose_in_base_link);
@@ -145,20 +145,7 @@ void RosPospacBridge::CreatePublishData() {
 
             geometry_msgs::msg::Pose base_link_pose = transformPoseToBaseLink(pose_msg);
 
-            // Publish pose message
-            if (pose_pub_) {
-                geometry_msgs::msg::PoseWithCovarianceStamped pose_with_cov_msg;
-                pose_with_cov_msg.header.stamp = sensor_time;
-                pose_with_cov_msg.header.frame_id = "map";
-                pose_with_cov_msg.pose.pose = base_link_pose;
-                pose_with_cov_msg.pose.covariance[0] = east_sd * east_sd;
-                pose_with_cov_msg.pose.covariance[7] = north_sd * north_sd;
-                pose_with_cov_msg.pose.covariance[14] = height_sd * height_sd;
-                pose_with_cov_msg.pose.covariance[21] = roll_sd * roll_sd;
-                pose_with_cov_msg.pose.covariance[28] = pitch_sd * pitch_sd;
-                pose_with_cov_msg.pose.covariance[35] = heading_sd * heading_sd;
-                pose_pub_->publish(pose_with_cov_msg);
-            }
+
 
             // Create and publish pose stamped message
             if (pose_stamped_pub_) {
@@ -169,6 +156,20 @@ void RosPospacBridge::CreatePublishData() {
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
+            // Publish pose message
+            if (pose_with_cov_stamped_pub_) {
+                geometry_msgs::msg::PoseWithCovarianceStamped pose_with_cov_msg;
+                pose_with_cov_msg.header.stamp = sensor_time;
+                pose_with_cov_msg.header.frame_id = "map";
+                pose_with_cov_msg.pose.pose = base_link_pose;
+                pose_with_cov_msg.pose.covariance[0] = east_sd * east_sd;
+                pose_with_cov_msg.pose.covariance[7] = north_sd * north_sd;
+                pose_with_cov_msg.pose.covariance[14] = height_sd * height_sd;
+                pose_with_cov_msg.pose.covariance[21] = roll_sd * roll_sd;
+                pose_with_cov_msg.pose.covariance[28] = pitch_sd * pitch_sd;
+                pose_with_cov_msg.pose.covariance[35] = heading_sd * heading_sd;
+                pose_with_cov_stamped_pub_->publish(pose_with_cov_msg);
+            }
             // Create and publish pose array message
             if (pose_array_pub_) {
                 all_poses_.push_back(base_link_pose);

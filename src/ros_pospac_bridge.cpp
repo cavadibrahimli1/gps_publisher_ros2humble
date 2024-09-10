@@ -133,19 +133,7 @@ void RosPospacBridge::CreatePublishData() {
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
             // Create pose message with only needed values
-            geometry_msgs::msg::Pose pose_msg;
-            pose_msg.position.x = easting;
-            pose_msg.position.y = northing;
-            pose_msg.position.z = ortho_height;
-            Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, heading);
-            pose_msg.orientation.x = q.x();
-            pose_msg.orientation.y = q.y();
-            pose_msg.orientation.z = q.z();
-            pose_msg.orientation.w = q.w();
-
-            geometry_msgs::msg::Pose base_link_pose = transformPoseToBaseLink(pose_msg);
-
-
+            geometry_msgs::msg::Pose base_link_pose =  createPoseMessage(latitude, longitude, ellipsoid_height, roll, pitch, heading);
 
             // Create and publish pose stamped message
             if (pose_stamped_pub_) {
@@ -248,16 +236,11 @@ sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, d
     return gps_msg;
 }
 
-geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage(
+geometry_msgs::msg::Pose RosPospacBridge::createPoseMessage(
     double latitude, double longitude, double altitude,
-    double roll, double pitch, double yaw,
-    double east_sd, double north_sd, double height_sd,
-    double roll_sd, double pitch_sd, double yaw_sd, 
-    rclcpp::Time sensor_time) {
+    double roll, double pitch, double yaw) {
 
-    geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-    pose_msg.header.stamp = sensor_time;
-    pose_msg.header.frame_id = "map";  // Make sure this matches your map frame
+    geometry_msgs::msg::Pose pose_msg;
 
     // Convert latitude and longitude to MGRS
     int zone;
@@ -273,27 +256,20 @@ geometry_msgs::msg::PoseWithCovarianceStamped RosPospacBridge::createPoseMessage
     double mgrs_y = std::stod(mgrs.substr(13, 8)) / 1000;
 
     // Use the MGRS-relative coordinates for the pose position
-    pose_msg.pose.pose.position.x = mgrs_x;  // Relative X
-    pose_msg.pose.pose.position.y = mgrs_y;  // Relative Y
-    pose_msg.pose.pose.position.z = altitude;  // Use actual altitude directly
+    pose_msg.position.x = mgrs_x;  // Relative X
+    pose_msg.position.y = mgrs_y;  // Relative Y
+    pose_msg.position.z = altitude;  // Use actual altitude directly
 
     // Convert from Euler angles (degrees) to quaternion
     Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, yaw);
-    pose_msg.pose.pose.orientation.x = q.x();
-    pose_msg.pose.pose.orientation.y = q.y();
-    pose_msg.pose.pose.orientation.z = q.z();
-    pose_msg.pose.pose.orientation.w = q.w();
+    pose_msg.orientation.x = q.x();
+    pose_msg.orientation.y = q.y();
+    pose_msg.orientation.z = q.z();
+    pose_msg.orientation.w = q.w();
 
-    // Set covariance (based on standard deviations)
-    pose_msg.pose.covariance[0] = east_sd * east_sd;    // Variance in X (easting)
-    pose_msg.pose.covariance[7] = north_sd * north_sd;  // Variance in Y (northing)
-    pose_msg.pose.covariance[14] = height_sd * height_sd;  // Variance in Z (altitude)
-    pose_msg.pose.covariance[21] = roll_sd * roll_sd;   // Variance in roll
-    pose_msg.pose.covariance[28] = pitch_sd * pitch_sd; // Variance in pitch
-    pose_msg.pose.covariance[35] = yaw_sd * yaw_sd;     // Variance in yaw
 
     // Transform pose to base_link frame
-    pose_msg.pose.pose = transformPoseToBaseLink(pose_msg.pose.pose);
+    pose_msg = transformPoseToBaseLink(pose_msg);
 
     return pose_msg;
 }

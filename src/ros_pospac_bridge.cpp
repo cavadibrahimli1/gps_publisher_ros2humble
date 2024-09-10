@@ -10,7 +10,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     bool enable_twist_pub_ = this->declare_parameter<bool>("publishers.twist_with_covariance_stamped.enable", true);
     bool enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
     bool enable_tf_pub_ = this->declare_parameter<bool>("publishers.tf.enable", true);
-    
+
     if (enable_gps_pub_) {
         std::string gps_topic = this->declare_parameter<std::string>("publishers.nav_sat_fix.topic", "/ros_pospac_bridge/gps_fix");
         gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>(gps_topic, 10);
@@ -39,14 +39,8 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
 
-    initializeTransformListener();
     getCalibrations();
     CreatePublishGpsData();
-}
-
-void RosPospacBridge::initializeTransformListener() {
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 void RosPospacBridge::getCalibrations() {

@@ -45,7 +45,6 @@ private:
                            double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time);
 
   // New method declarations
-  void initializeTransformListener();
   void getCalibrations();
   geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
 
@@ -57,13 +56,6 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;
 
-  // bool enable_gps_pub_;
-  // bool enable_imu_pub_;
-  // bool enable_pose_pub_;
-  // bool enable_pose_array_pub_;
-  // bool enable_twist_pub_;
-  // bool enable_pose_stamped_pub_;
-  // bool enable_tf_pub_;
 
   double origin_easting_;
   double origin_northing_;

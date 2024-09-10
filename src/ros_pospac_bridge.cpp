@@ -58,13 +58,30 @@ void RosPospacBridge::getCalibrations() {
     );
     lidar_to_gnss_transform.setRotation(q_rot);
     lidar_to_gnss_transform_ = lidar_to_gnss_transform;
+
+    // Read base_link_to_lidar parameters
+    tf2::Transform base_link_to_lidar_transform;
+    base_link_to_lidar_transform.setOrigin(tf2::Vector3(
+        this->declare_parameter<double>("calibration.base_link_to_lidar.x", 0.0),
+        this->declare_parameter<double>("calibration.base_link_to_lidar.y", 0.0),
+        this->declare_parameter<double>("calibration.base_link_to_lidar.z", 0.0)
+    ));
+    tf2::Quaternion q_base_link_to_lidar;
+    q_base_link_to_lidar.setRPY(
+        this->declare_parameter<double>("calibration.base_link_to_lidar.roll", 0.0),
+        this->declare_parameter<double>("calibration.base_link_to_lidar.pitch", 0.0),
+        this->declare_parameter<double>("calibration.base_link_to_lidar.yaw", 0.0)
+    );
+    base_link_to_lidar_transform.setRotation(q_base_link_to_lidar);
+    base_link_to_lidar_transform_ = base_link_to_lidar_transform;
 }
 
 geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::Pose& gnss_pose) {
     tf2::Transform tf_map2gnss_transform;
     tf2::fromMsg(gnss_pose, tf_map2gnss_transform);
 
-    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_;
+    // Apply lidar_to_gnss_transform and then base_link_to_lidar_transform
+    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_ * base_link_to_lidar_transform_;
 
     geometry_msgs::msg::Pose pose_in_base_link;
     tf2::toMsg(tf_map2base_link, pose_in_base_link);

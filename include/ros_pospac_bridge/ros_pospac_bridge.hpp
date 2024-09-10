@@ -76,6 +76,7 @@ private:
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   tf2::Transform lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
+  tf2::Transform base_link_to_lidar_transform_;  // New member variable
 };
 
 #endif  // ROS_POSPAC_BRIDGE_HPP

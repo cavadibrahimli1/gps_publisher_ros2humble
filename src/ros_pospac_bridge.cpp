@@ -85,11 +85,7 @@ geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry
     tf2::Transform tf_map2gnss_transform;
     tf2::fromMsg(gnss_pose, tf_map2gnss_transform);
 
-    tf2::Quaternion rotation_correction;
-    rotation_correction.setRPY(0, 0, M_PI);  
-    tf2::Transform correction_transform(rotation_correction);
-
-    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_ * correction_transform;
+    tf2::Transform tf_map2base_link = tf_map2gnss_transform * lidar_to_gnss_transform_;
 
     geometry_msgs::msg::Pose pose_in_base_link;
     tf2::toMsg(tf_map2base_link, pose_in_base_link);

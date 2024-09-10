@@ -1,4 +1,5 @@
 <launch>
+    <!-- Static transform between map and base_link -->
 
     <!-- Node definition using the parameter file -->
     <node

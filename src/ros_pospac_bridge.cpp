@@ -132,26 +132,33 @@ void RosPospacBridge::CreatePublishGpsData() {
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
-            if (gps_pub_) {
-                auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
-                                                east_sd, north_sd, height_sd, sensor_time);
-                gps_pub_->publish(gps_msg);
-            }
-
-            auto pose_msg = createPoseMessage(latitude, longitude, ortho_height, roll, pitch, heading,
-                                              east_sd, north_sd, height_sd, roll_sd, pitch_sd, heading_sd, sensor_time);
+            // Create pose message with only needed values
+            geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
+            pose_msg.header.stamp = sensor_time;
+            pose_msg.header.frame_id = "map";
+            pose_msg.pose.pose.position.x = easting;
+            pose_msg.pose.pose.position.y = northing;
+            pose_msg.pose.pose.position.z = ortho_height;
+            Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, heading);
+            pose_msg.pose.pose.orientation.x = q.x();
+            pose_msg.pose.pose.orientation.y = q.y();
+            pose_msg.pose.pose.orientation.z = q.z();
+            pose_msg.pose.pose.orientation.w = q.w();
 
             geometry_msgs::msg::Pose base_link_pose = pose_msg.pose.pose;
 
+            // Publish pose message
             if (pose_pub_) {
                 pose_pub_->publish(pose_msg);
             }
 
+            // Create and publish pose stamped message
             if (pose_stamped_pub_) {
                 auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
+            // Create and publish pose array message
             if (pose_array_pub_) {
                 all_poses_.push_back(base_link_pose);
                 geometry_msgs::msg::PoseArray pose_array_msg;
@@ -166,6 +173,7 @@ void RosPospacBridge::CreatePublishGpsData() {
                 publishMapToBaseLinkTransform(base_link_pose, sensor_time);
             }
 
+            // Create and publish IMU message
             if (imu_pub_) {
                 auto imu_msg = createImuMessage(sensor_time, x_angular_rate, y_angular_rate, z_angular_rate,
                                                 x_acceleration, y_acceleration, z_acceleration, roll, pitch, heading,
@@ -173,9 +181,17 @@ void RosPospacBridge::CreatePublishGpsData() {
                 imu_pub_->publish(imu_msg);
             }
 
+            // Create and publish twist message
             if (twist_pub_) {
                 publishTwistMessage(east_velocity, north_velocity, up_velocity,
                                     x_angular_rate, y_angular_rate, z_angular_rate, sensor_time);
+            }
+
+            // Create and publish GPS message
+            if (gps_pub_) {
+                auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
+                                                east_sd, north_sd, height_sd, sensor_time);
+                gps_pub_->publish(gps_msg);
             }
         }
     }

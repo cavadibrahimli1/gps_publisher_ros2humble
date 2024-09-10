@@ -26,7 +26,7 @@ public:
   RosPospacBridge();
 
 private:
-  void publishGpsData();
+  void CreatePublishGpsData();
   void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_ins_pose, const rclcpp::Time& timestamp);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
@@ -46,9 +46,7 @@ private:
 
   // New method declarations
   void initializeTransformListener();
-  void declareParameters();
-  void initializePublishers();
-  void loadParameters();
+  void getCalibrations();
   geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
 
   // Publisher pointers
@@ -59,13 +57,13 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;
 
-  bool enable_gps_pub_;
-  bool enable_imu_pub_;
-  bool enable_pose_pub_;
-  bool enable_pose_array_pub_;
-  bool enable_twist_pub_;
-  bool enable_pose_stamped_pub_;
-  bool enable_tf_pub_;
+  // bool enable_gps_pub_;
+  // bool enable_imu_pub_;
+  // bool enable_pose_pub_;
+  // bool enable_pose_array_pub_;
+  // bool enable_twist_pub_;
+  // bool enable_pose_stamped_pub_;
+  // bool enable_tf_pub_;
 
   double origin_easting_;
   double origin_northing_;

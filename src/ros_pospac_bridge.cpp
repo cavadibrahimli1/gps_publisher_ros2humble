@@ -1,14 +1,22 @@
 #include "ros_pospac_bridge/ros_pospac_bridge.hpp"
 
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
-    // Initialize transform buffer and listener
+    initializeTransformListener();
+    declareParameters();
+    initializePublishers();
+    loadParameters();
+    publishGpsData();
+}
+
+void RosPospacBridge::initializeTransformListener() {
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+}
 
-    // Declare parameters
+void RosPospacBridge::declareParameters() {
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
     std::string mgrs_origin = this->declare_parameter<std::string>("mgrs_origin", "");
-    
+
     int zone;
     bool northp;
     int precision;
@@ -20,45 +28,36 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     }
 
     enable_gps_pub_ = this->declare_parameter<bool>("publishers.nav_sat_fix.enable", true);
+    enable_imu_pub_ = this->declare_parameter<bool>("publishers.imu.enable", true);
+    enable_pose_pub_ = this->declare_parameter<bool>("publishers.pose_with_covariance_stamped.enable", true);
+    enable_pose_array_pub_ = this->declare_parameter<bool>("publishers.pose_array.enable", true);
+    enable_twist_pub_ = this->declare_parameter<bool>("publishers.twist_with_covariance_stamped.enable", true);
+    enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
+    enable_tf_pub_ = this->declare_parameter<bool>("publishers.tf.enable", true);
+}
+
+void RosPospacBridge::initializePublishers() {
     if (enable_gps_pub_) {
         gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);
     }
-
-    enable_imu_pub_ = this->declare_parameter<bool>("publishers.imu.enable", true);
     if (enable_imu_pub_) {
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
     }
-
-    enable_pose_pub_ = this->declare_parameter<bool>("publishers.pose_with_covariance_stamped.enable", true);
     if (enable_pose_pub_) {
         pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
     }
-
-    enable_pose_array_pub_ = this->declare_parameter<bool>("publishers.pose_array.enable", true);
     if (enable_pose_array_pub_) {
         pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
     }
-
-    enable_twist_pub_ = this->declare_parameter<bool>("publishers.twist_with_covariance_stamped.enable", true);
     if (enable_twist_pub_) {
         twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_with_covariance", 10);
     }
-
-    enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
     if (enable_pose_stamped_pub_) {
         pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
     }
-
-    enable_tf_pub_ = this->declare_parameter<bool>("publishers.tf.enable", true);
     if (enable_tf_pub_) {
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
-
-    // Load parameters
-    loadParameters();
-
-    // Start publishing data
-    publishGpsData();
 }
 
 void RosPospacBridge::loadParameters() {

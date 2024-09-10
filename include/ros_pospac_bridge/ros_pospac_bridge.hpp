@@ -44,6 +44,13 @@ private:
   void publishTwistMessage(double east_velocity, double north_velocity, double up_velocity,
                            double x_angular_rate, double y_angular_rate, double z_angular_rate, rclcpp::Time sensor_time);
 
+  // New method declarations
+  void initializeTransformListener();
+  void declareParameters();
+  void initializePublishers();
+  void loadParameters();
+  geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
+
   // Publisher pointers
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
@@ -71,12 +78,6 @@ private:
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   tf2::Transform lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
-
-  // New method to transform pose to base_link frame
-  geometry_msgs::msg::Pose transformPoseToBaseLink(const geometry_msgs::msg::Pose& pose);
-
-  // New method to load parameters
-  void loadParameters();
 };
 
 #endif  // ROS_POSPAC_BRIDGE_HPP

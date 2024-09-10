@@ -26,7 +26,7 @@ public:
   RosPospacBridge();
 
 private:
-  void CreatePublishGpsData();
+  void CreatePublishData(); // Renamed method
   void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_ins_pose, const rclcpp::Time& timestamp);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,

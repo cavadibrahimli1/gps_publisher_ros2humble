@@ -40,7 +40,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     }
 
     getCalibrations();
-    CreatePublishGpsData();
+    CreatePublishData();
 }
 
 void RosPospacBridge::getCalibrations() {
@@ -104,7 +104,7 @@ void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Po
     tf_broadcaster_->sendTransform(transform_stamped);
 }
 
-void RosPospacBridge::CreatePublishGpsData() {
+void RosPospacBridge::CreatePublishData() {
     std::ifstream file(file_path_);
     if (!file.is_open()) {
         return; 

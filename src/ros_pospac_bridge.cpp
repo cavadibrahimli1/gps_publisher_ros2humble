@@ -152,9 +152,8 @@ void RosPospacBridge::CreatePublishGpsData() {
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
-            all_poses_.push_back(base_link_pose);
-
             if (pose_array_pub_) {
+                all_poses_.push_back(base_link_pose);
                 geometry_msgs::msg::PoseArray pose_array_msg;
                 pose_array_msg.header.stamp = pose_msg.header.stamp;
                 pose_array_msg.header.frame_id = "map";

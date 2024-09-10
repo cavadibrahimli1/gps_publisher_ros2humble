@@ -11,23 +11,30 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     bool enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
     bool enable_tf_pub_ = this->declare_parameter<bool>("publishers.tf.enable", true);
 
+    std::string gps_topic = this->declare_parameter<std::string>("publishers.nav_sat_fix.topic", "/ros_pospac_bridge/gps_fix");
+    std::string imu_topic = this->declare_parameter<std::string>("publishers.imu.topic", "/ros_pospac_bridge/imu_data");
+    std::string pose_topic = this->declare_parameter<std::string>("publishers.pose_with_covariance_stamped.topic", "/ros_pospac_bridge/pose_with_covariance");
+    std::string pose_array_topic = this->declare_parameter<std::string>("publishers.pose_array.topic", "/ros_pospac_bridge/pose_array");
+    std::string twist_topic = this->declare_parameter<std::string>("publishers.twist_with_covariance_stamped.topic", "/ros_pospac_bridge/twist_with_covariance");
+    std::string pose_stamped_topic = this->declare_parameter<std::string>("publishers.pose_stamped.topic", "/ros_pospac_bridge/pose_stamped");
+
     if (enable_gps_pub_) {
-        gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("/ros_pospac_bridge/gps_fix", 10);
+        gps_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>(gps_topic, 10);
     }
     if (enable_imu_pub_) {
-        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/ros_pospac_bridge/imu_data", 10);
+        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic, 10);
     }
     if (enable_pose_pub_) {
-        pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/ros_pospac_bridge/pose_with_covariance", 10);
+        pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(pose_topic, 10);
     }
     if (enable_pose_array_pub_) {
-        pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/ros_pospac_bridge/pose_array", 10);
+        pose_array_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>(pose_array_topic, 10);
     }
     if (enable_twist_pub_) {
-        twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/ros_pospac_bridge/twist_with_covariance", 10);
+        twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(twist_topic, 10);
     }
     if (enable_pose_stamped_pub_) {
-        pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ros_pospac_bridge/pose_stamped", 10);
+        pose_stamped_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(pose_stamped_topic, 10);
     }
     if (enable_tf_pub_) {
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);

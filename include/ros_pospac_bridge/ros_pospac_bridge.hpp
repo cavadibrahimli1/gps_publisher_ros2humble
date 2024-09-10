@@ -19,10 +19,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-#include <chrono>
-#include <thread>
 #include <memory>
-#include <cmath>
 
 class RosPospacBridge : public rclcpp::Node {
 public:
@@ -65,7 +62,6 @@ private:
 
   double origin_easting_;
   double origin_northing_;
-  double initial_altitude_;
 
   std::string file_path_;
 

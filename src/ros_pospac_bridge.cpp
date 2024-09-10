@@ -7,8 +7,6 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 
     // Declare parameters
     file_path_ = this->declare_parameter<std::string>("gps_data_file", "");
-    initial_altitude_ = this->declare_parameter<double>("origin_altitude", 0.0);
-
     std::string mgrs_origin = this->declare_parameter<std::string>("mgrs_origin", "");
     
     int zone;
@@ -355,6 +353,3 @@ int main(int argc, char *argv[]) {
     rclcpp::shutdown();
     return 0;
 }
-
-
-//

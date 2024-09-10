@@ -133,28 +133,39 @@ void RosPospacBridge::CreatePublishGpsData() {
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
             // Create pose message with only needed values
-            geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
-            pose_msg.header.stamp = sensor_time;
-            pose_msg.header.frame_id = "map";
-            pose_msg.pose.pose.position.x = easting;
-            pose_msg.pose.pose.position.y = northing;
-            pose_msg.pose.pose.position.z = ortho_height;
+            geometry_msgs::msg::Pose pose_msg;
+            pose_msg.position.x = easting;
+            pose_msg.position.y = northing;
+            pose_msg.position.z = ortho_height;
             Eigen::Quaterniond q = getQuaternionFromRPY(roll, pitch, heading);
-            pose_msg.pose.pose.orientation.x = q.x();
-            pose_msg.pose.pose.orientation.y = q.y();
-            pose_msg.pose.pose.orientation.z = q.z();
-            pose_msg.pose.pose.orientation.w = q.w();
+            pose_msg.orientation.x = q.x();
+            pose_msg.orientation.y = q.y();
+            pose_msg.orientation.z = q.z();
+            pose_msg.orientation.w = q.w();
 
-            geometry_msgs::msg::Pose base_link_pose = pose_msg.pose.pose;
+            geometry_msgs::msg::Pose base_link_pose = transformPoseToBaseLink(pose_msg);
 
             // Publish pose message
             if (pose_pub_) {
-                pose_pub_->publish(pose_msg);
+                geometry_msgs::msg::PoseWithCovarianceStamped pose_with_cov_msg;
+                pose_with_cov_msg.header.stamp = sensor_time;
+                pose_with_cov_msg.header.frame_id = "map";
+                pose_with_cov_msg.pose.pose = base_link_pose;
+                pose_with_cov_msg.pose.covariance[0] = east_sd * east_sd;
+                pose_with_cov_msg.pose.covariance[7] = north_sd * north_sd;
+                pose_with_cov_msg.pose.covariance[14] = height_sd * height_sd;
+                pose_with_cov_msg.pose.covariance[21] = roll_sd * roll_sd;
+                pose_with_cov_msg.pose.covariance[28] = pitch_sd * pitch_sd;
+                pose_with_cov_msg.pose.covariance[35] = heading_sd * heading_sd;
+                pose_pub_->publish(pose_with_cov_msg);
             }
 
             // Create and publish pose stamped message
             if (pose_stamped_pub_) {
-                auto pose_stamped_msg = createPoseStampedMessage(pose_msg);
+                geometry_msgs::msg::PoseStamped pose_stamped_msg;
+                pose_stamped_msg.header.stamp = sensor_time;
+                pose_stamped_msg.header.frame_id = "map";
+                pose_stamped_msg.pose = base_link_pose;
                 pose_stamped_pub_->publish(pose_stamped_msg);
             }
 
@@ -162,7 +173,7 @@ void RosPospacBridge::CreatePublishGpsData() {
             if (pose_array_pub_) {
                 all_poses_.push_back(base_link_pose);
                 geometry_msgs::msg::PoseArray pose_array_msg;
-                pose_array_msg.header.stamp = pose_msg.header.stamp;
+                pose_array_msg.header.stamp = sensor_time;
                 pose_array_msg.header.frame_id = "map";
                 pose_array_msg.poses = all_poses_;
                 pose_array_pub_->publish(pose_array_msg);

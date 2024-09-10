@@ -61,9 +61,8 @@ void RosPospacBridge::initializePublishers() {
 }
 
 void RosPospacBridge::loadParameters() {
-    // Get parameters for gnss_to_base_link_transform
-    tf2::Transform gnss_to_base_link_transform;
-    gnss_to_base_link_transform.setOrigin(tf2::Vector3(
+    tf2::Transform lidar_to_gnss_transform;
+    lidar_to_gnss_transform.setOrigin(tf2::Vector3(
         this->declare_parameter<double>("calibration.lidar_to_gnss.x", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.y", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.z", 0.0)
@@ -74,8 +73,8 @@ void RosPospacBridge::loadParameters() {
         this->declare_parameter<double>("calibration.lidar_to_gnss.pitch", 0.0),
         this->declare_parameter<double>("calibration.lidar_to_gnss.yaw", 0.0)
     );
-    gnss_to_base_link_transform.setRotation(q_rot);
-    lidar_to_gnss_transform_ = gnss_to_base_link_transform;
+    lidar_to_gnss_transform.setRotation(q_rot);
+    lidar_to_gnss_transform_ = lidar_to_gnss_transform;
 }
 
 geometry_msgs::msg::Pose RosPospacBridge::transformPoseToBaseLink(const geometry_msgs::msg::Pose& gnss_pose) {
@@ -108,14 +107,14 @@ void RosPospacBridge::publishMapToBaseLinkTransform(const geometry_msgs::msg::Po
 void RosPospacBridge::publishGpsData() {
     std::ifstream file(file_path_);
     if (!file.is_open()) {
-        return;  // Silently handle file open failure
+        return; 
     }
 
     std::string line;
 
     while (std::getline(file, line) && rclcpp::ok()) {
         if (line.empty()) {
-            continue;  // Skip empty lines silently
+            continue; 
         }
 
         std::istringstream iss(line);
@@ -133,7 +132,6 @@ void RosPospacBridge::publishGpsData() {
 
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
 
-            // Continue with publishing GPS, Pose, IMU, and Twist messages
             if (enable_gps_pub_ && gps_pub_) {
                 auto gps_msg = createGpsMessage(latitude, longitude, ellipsoid_height,
                                                 east_sd, north_sd, height_sd, sensor_time);

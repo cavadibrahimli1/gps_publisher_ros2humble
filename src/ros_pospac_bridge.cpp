@@ -287,7 +287,7 @@ geometry_msgs::msg::PoseStamped RosPospacBridge::createPoseStampedMessage(const 
 sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, double x_angular_rate, double y_angular_rate,
                                                         double z_angular_rate, double x_acceleration, double y_acceleration,
                                                         double z_acceleration, double roll, double pitch, double yaw,
-                                                        double /* roll_sd */, double /* pitch_sd */, double /* heading_sd */) {
+                                                        double roll_sd, double pitch_sd, double heading_sd) {
     // Create the IMU message
     sensor_msgs::msg::Imu imu_msg;
     imu_msg.header.stamp = timestamp;
@@ -307,9 +307,10 @@ sensor_msgs::msg::Imu RosPospacBridge::createImuMessage(rclcpp::Time timestamp, 
     imu_msg.linear_acceleration.y = y_acceleration;
     imu_msg.linear_acceleration.z = z_acceleration;
 
-    imu_msg.orientation_covariance[0] = 1.0;
-    imu_msg.orientation_covariance[4] = 1.0;
-    imu_msg.orientation_covariance[8] = 1.0;
+    // Set orientation covariance using roll_sd, pitch_sd, and heading_sd
+    imu_msg.orientation_covariance[0] = roll_sd * roll_sd;
+    imu_msg.orientation_covariance[4] = pitch_sd * pitch_sd;
+    imu_msg.orientation_covariance[8] = heading_sd * heading_sd;
 
     imu_msg.angular_velocity_covariance[0] = 1.0;
     imu_msg.angular_velocity_covariance[4] = 1.0;
@@ -327,7 +328,7 @@ void RosPospacBridge::publishTwistMessage(double east_velocity, double north_vel
     geometry_msgs::msg::TwistWithCovarianceStamped twist_with_cov_stamped_msg;
 
     twist_with_cov_stamped_msg.header.stamp = sensor_time;
-    twist_with_cov_stamped_msg.header.frame_id = "map";  // Ensure consistent frame ID
+    twist_with_cov_stamped_msg.header.frame_id = "map";  // FRAME ID CHANGE
 
     // Set linear velocities
     twist_with_cov_stamped_msg.twist.twist.linear.x = east_velocity;
@@ -339,9 +340,9 @@ void RosPospacBridge::publishTwistMessage(double east_velocity, double north_vel
     twist_with_cov_stamped_msg.twist.twist.angular.y = y_angular_rate;
     twist_with_cov_stamped_msg.twist.twist.angular.z = z_angular_rate;
 
-    twist_with_cov_stamped_msg.twist.covariance[0] = 1.0;  // Variance in X (east velocity)
-    twist_with_cov_stamped_msg.twist.covariance[7] = 1.0;  // Variance in Y (north velocity)
-    twist_with_cov_stamped_msg.twist.covariance[14] = 1.0;  // Variance in Z (up velocity)
+    twist_with_cov_stamped_msg.twist.covariance[0] = 1.0; 
+    twist_with_cov_stamped_msg.twist.covariance[7] = 1.0;  
+    twist_with_cov_stamped_msg.twist.covariance[14] = 1.0;  
 
     // Publish the Twist message
     twist_pub_->publish(twist_with_cov_stamped_msg);

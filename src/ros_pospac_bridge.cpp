@@ -202,7 +202,7 @@ void RosPospacBridge::CreatePublishData() {
             if (gnss_ins_orientation_pub_) {
                 autoware_sensing_msgs::msg::GnssInsOrientationStamped gnss_ins_orientation_msg;
                 gnss_ins_orientation_msg.header.stamp = sensor_time;
-                gnss_ins_orientation_msg.header.frame_id = "map";
+                gnss_ins_orientation_msg.header.frame_id = "gnss_ins_link";
                 gnss_ins_orientation_msg.orientation.orientation = base_link_pose.orientation;
                 gnss_ins_orientation_msg.orientation.rmse_rotation_x = roll_sd;
                 gnss_ins_orientation_msg.orientation.rmse_rotation_y = pitch_sd;
@@ -235,7 +235,7 @@ sensor_msgs::msg::NavSatFix RosPospacBridge::createGpsMessage(double latitude, d
                                              double east_sd, double north_sd, double height_sd, rclcpp::Time timestamp) {
     sensor_msgs::msg::NavSatFix gps_msg;
     gps_msg.header.stamp = timestamp;
-    gps_msg.header.frame_id = "map";  // Ensure consistent frame ID
+    gps_msg.header.frame_id = "gnss_ins_link";
     gps_msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
     gps_msg.status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
 

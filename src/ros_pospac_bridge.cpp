@@ -10,6 +10,7 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     bool enable_twist_pub_ = this->declare_parameter<bool>("publishers.twist_with_covariance_stamped.enable", true);
     bool enable_pose_stamped_pub_ = this->declare_parameter<bool>("publishers.pose_stamped.enable", true);
     bool enable_tf_pub_ = this->declare_parameter<bool>("publishers.tf.enable", true);
+    bool enable_gnss_ins_orientation_pub_ = this->declare_parameter<bool>("publishers.gnss_ins_orientation.enable", true);
 
     if (enable_gps_pub_) {
         std::string gps_topic = this->declare_parameter<std::string>("publishers.nav_sat_fix.topic", "/ros_pospac_bridge/gps_fix");
@@ -37,6 +38,10 @@ RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
     }
     if (enable_tf_pub_) {
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+    }
+    if (enable_gnss_ins_orientation_pub_) {
+        std::string gnss_ins_orientation_topic = this->declare_parameter<std::string>("publishers.gnss_ins_orientation.topic", "/ros_pospac_bridge/gnss_ins_orientation");
+        gnss_ins_orientation_pub_ = this->create_publisher<autoware_sensing_msgs::msg::GnssInsOrientationStamped>(gnss_ins_orientation_topic, 10);
     }
 
     getCalibrations();
@@ -193,6 +198,17 @@ void RosPospacBridge::CreatePublishData() {
                                                 east_sd, north_sd, height_sd, sensor_time);
                 gps_pub_->publish(gps_msg);
             }
+
+            if (gnss_ins_orientation_pub_) {
+                autoware_sensing_msgs::msg::GnssInsOrientationStamped gnss_ins_orientation_msg;
+                gnss_ins_orientation_msg.header.stamp = sensor_time;
+                gnss_ins_orientation_msg.header.frame_id = "map";
+                gnss_ins_orientation_msg.orientation.orientation = base_link_pose.orientation;
+                gnss_ins_orientation_msg.orientation.rmse_rotation_x = roll_sd;
+                gnss_ins_orientation_msg.orientation.rmse_rotation_y = pitch_sd;
+                gnss_ins_orientation_msg.orientation.rmse_rotation_z = heading_sd;
+                gnss_ins_orientation_pub_->publish(gnss_ins_orientation_msg);
+            }
         }
     }
     file.close();
@@ -251,11 +267,9 @@ geometry_msgs::msg::Pose RosPospacBridge::createPoseMessage(
     std::string mgrs;
     GeographicLib::MGRS::Forward(zone, northp, utm_easting, utm_northing, 8, mgrs);
 
-    // Convert MGRS to UTM in order 
     double mgrs_x = std::stod(mgrs.substr(5, 8)) / 1000; 
     double mgrs_y = std::stod(mgrs.substr(13, 8)) / 1000;
 
-    // Use the MGRS-relative coordinates for the pose position
     pose_msg.position.x = mgrs_x;  // Relative X
     pose_msg.position.y = mgrs_y;  // Relative Y
     pose_msg.position.z = altitude;  // Use actual altitude directly

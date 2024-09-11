@@ -20,6 +20,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <autoware_sensing_msgs/msg/gnss_ins_orientation_stamped.hpp>
 
 class RosPospacBridge : public rclcpp::Node {
 public:
@@ -53,7 +54,6 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_stamped_pub_;
 
-
   double origin_easting_;
   double origin_northing_;
 
@@ -66,6 +66,8 @@ private:
 
   tf2::Transform lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
   tf2::Transform base_link_to_lidar_transform_;  // New member variable
+
+  rclcpp::Publisher<autoware_sensing_msgs::msg::GnssInsOrientationStamped>::SharedPtr gnss_ins_orientation_pub_;
 };
 
 #endif  // ROS_POSPAC_BRIDGE_HPP

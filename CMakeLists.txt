@@ -17,6 +17,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(GeographicLib REQUIRED)
 find_package(ament_cmake_auto REQUIRED)
+find_package(autoware_sensing_msgs REQUIRED)  # Add this line
 
 ament_auto_find_build_dependencies()
 
@@ -33,7 +34,9 @@ ament_target_dependencies(ros_pospac_bridge
   geometry_msgs 
   tf2 
   tf2_geometry_msgs 
-  GeographicLib)
+  GeographicLib
+  autoware_sensing_msgs  # Add this line
+)
 
 # Install the executable
 install(TARGETS

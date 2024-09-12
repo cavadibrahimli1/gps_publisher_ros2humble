@@ -1,4 +1,6 @@
 #include "ros_pospac_bridge/ros_pospac_bridge.hpp"
+#include <chrono>
+#include <thread>
 
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 
@@ -116,6 +118,9 @@ void RosPospacBridge::CreatePublishData() {
     }
 
     std::string line;
+    rclcpp::Time start_time = this->now();
+    double first_timestamp = 0.0;
+    bool first_line = true;
 
     while (std::getline(file, line) && rclcpp::ok()) {
         if (line.empty()) {
@@ -135,10 +140,22 @@ void RosPospacBridge::CreatePublishData() {
                >> x_acceleration >> y_acceleration >> z_acceleration
                >> east_sd >> north_sd >> height_sd >> roll_sd >> pitch_sd >> heading_sd) {
 
+            if (first_line) {
+                first_timestamp = time;
+                first_line = false;
+            }
+
             rclcpp::Time sensor_time(static_cast<uint64_t>(time * 1e9), RCL_ROS_TIME);
+            rclcpp::Time current_time = this->now();
+            double elapsed_time = (time - first_timestamp);
+            double real_elapsed_time = (current_time - start_time).seconds();
+
+            if (elapsed_time > real_elapsed_time) {
+                std::this_thread::sleep_for(std::chrono::duration<double>(elapsed_time - real_elapsed_time));
+            }
 
             // Create pose message with only needed values
-            geometry_msgs::msg::Pose base_link_pose =  createPoseMessage(latitude, longitude, ellipsoid_height, roll, pitch, heading);
+            geometry_msgs::msg::Pose base_link_pose = createPoseMessage(latitude, longitude, ellipsoid_height, roll, pitch, heading);
 
             // Create and publish pose stamped message
             if (pose_stamped_pub_) {

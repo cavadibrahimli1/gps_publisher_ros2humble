@@ -1,14 +1,11 @@
 // ROS2 Humble 
 // ROS2 Version: 0.14.0
-// Author: Javad Ibrahimli (cenabibrahimov@gmail.com)
 
 // This code is responsible for bridging GPS data
 // from a file to various ROS2 topics. It includes functionalities for publishing
 // GPS, IMU, pose, twist, and transform data, as well as handling calibration parameters.
 
 #include "ros_pospac_bridge/ros_pospac_bridge.hpp"
-#include <chrono>
-#include <thread>
 
 RosPospacBridge::RosPospacBridge() : Node("ros_pospac_bridge") {
 

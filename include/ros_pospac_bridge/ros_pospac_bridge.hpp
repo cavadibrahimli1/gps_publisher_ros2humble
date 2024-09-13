@@ -21,13 +21,15 @@
 #include <sstream>
 #include <memory>
 #include <autoware_sensing_msgs/msg/gnss_ins_orientation_stamped.hpp>
+#include <chrono>  
+#include <thread>  
 
 class RosPospacBridge : public rclcpp::Node {
 public:
   RosPospacBridge();
 
 private:
-  void CreatePublishData(); // Renamed method
+  void CreatePublishData(); 
   void publishMapToBaseLinkTransform(const geometry_msgs::msg::Pose& gnss_ins_pose, const rclcpp::Time& timestamp);
   Eigen::Quaterniond getQuaternionFromRPY(double roll, double pitch, double yaw);
   sensor_msgs::msg::NavSatFix createGpsMessage(double latitude, double longitude, double ellipsoid_height,
@@ -64,8 +66,8 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  tf2::Transform lidar_to_gnss_transform_;  // Updated to reflect lidar-to-GNSS
-  tf2::Transform base_link_to_lidar_transform_;  // New member variable
+  tf2::Transform lidar_to_gnss_transform_;  
+  tf2::Transform base_link_to_lidar_transform_;  
 
   rclcpp::Publisher<autoware_sensing_msgs::msg::GnssInsOrientationStamped>::SharedPtr gnss_ins_orientation_pub_;
 };

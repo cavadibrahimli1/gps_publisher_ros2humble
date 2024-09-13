@@ -1,6 +1,5 @@
 <launch>
 
-    <!-- Node definition using the parameter file -->
     <node
         name="ros_pospac_bridge"
         pkg="ros_pospac_bridge"

@@ -32,6 +32,7 @@
 The `ros_pospac_bridge` package provides a seamless way to ingest GPS and IMU data and publish it in formats compatible with common ROS messages, such as `sensor_msgs/NavSatFix`, `sensor_msgs/Imu`, and various pose messages for localization tasks. It includes built-in calibration parameters for integrating LIDAR, GNSS, and other sensor data.
 
 Key features:
+
 - Reading GPS data from custom files.
 - Publishing GPS, IMU, and pose data in ROS topics.
 - Managing transformations between various frames, including base_link, map, and sensor frames.
@@ -42,18 +43,21 @@ Key features:
 To install and build the package, follow the steps below:
 
 1. **Clone the repository**:
+
    ```bash
    git clone https://github.com/cavadibrahimli1/gps_publisher_ros2humble
    ```
 
 2. **Install dependencies**:
    Ensure that all required dependencies are installed by running the following command:
+
    ```bash
    rosdep install --from-paths src --ignore-src -r -y
    ```
 
 3. **Build the workspace**:
    Once the repository is cloned, navigate to your ROS workspace and build the package:
+
    ```bash
    cd ~/ros2_ws
    colcon build
@@ -61,6 +65,7 @@ To install and build the package, follow the steps below:
 
 4. **Source the environment**:
    After building, you need to source the environment to use the package:
+
    ```bash
    source install/setup.bash
    ```
@@ -74,6 +79,7 @@ To simplify the usage, the package comes with a pre-configured launch file that 
 ```bash
 ros2 launch ros_pospac_bridge ros_pospac_bridge.launch.xml
 ```
+
 ```bash
 source autoware/install/setup.bash 
 ros2 launch autoware_launch logging_simulator.launch.xml map_path:=/home/javadibrahimli/autoware_map/test_route2 vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit
@@ -186,7 +192,6 @@ Adjust these parameters to reflect your sensor setup for accurate data integrati
 
 ![image](https://github.com/user-attachments/assets/3dc45037-cdee-4b03-bd15-9b9f2ef703ae)
 
-
 ### Advanced Settings
 
 For more advanced users, additional parameters like update frequency, filtering options, and dynamic transformations can be added to the configuration file.
@@ -212,11 +217,13 @@ rosdep install --from-paths src --ignore-src -r -y
 This package includes unit tests for validating GPS and IMU data parsing, transformations, and message publishing. To build and run the tests:
 
 1. Build with testing enabled:
+
    ```bash
    colcon build --cmake-args -DBUILD_TESTING=ON
    ```
 
 2. Run the tests:
+
    ```bash
    colcon test
    ```
@@ -238,5 +245,3 @@ We welcome contributions from the community! To contribute:
 3. Submit a pull request with a detailed description of the changes.
 
 Please ensure your code passes the tests before submitting.
-
-

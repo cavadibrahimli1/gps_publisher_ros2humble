@@ -1,7 +1,7 @@
 ros_pospac_bridge:
   ros__parameters:
-    gps_data_file: "/home/javadibrahimli/ros2_ws/route2.txt"
-    mgrs_origin: "35TPF6645943620"  # Replace with your MGRS origin
+    gps_data_file: "/home/javadibrahimli/ros2_ws/route3.txt"
+    mgrs_origin: "35TPF6645943620"  
     origin_altitude: 42.743
 
     publishers:
@@ -24,7 +24,7 @@ ros_pospac_bridge:
         enable: true
         topic: "/ros_pospac_bridge/pose_stamped"
       tf:
-        enable: true 
+        enable: true
 
     calibration:
       lidar_to_gnss:
